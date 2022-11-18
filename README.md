@@ -1,2 +1,2 @@
 # bones
-Dice analysis utility
+Dice analysis toolkit

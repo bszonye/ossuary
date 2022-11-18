@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "bones"
+version = "0.0.0"
+description = "dice analysis toolkit"
+authors = ["Bradd Szonye <bszonye@gmail.com>"]
+readme = "README.md"
+homepage = "https://github.com/bszonye/bones"
+repository = "https://github.com/bszonye/bones"
+keywords = ["dice", "probability"]
+packages = [
+    { include = "bones" },
+]
+
+[tool.poetry.scripts]
+bones = "bones.__main__:main"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+lea = "^3.4.2"
+matplotlib = "^3.6.2"
+PyGObject = "^3.42.2"
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "^5.0.4"
+black = "^22.10.0"
+pytest = "^7.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
