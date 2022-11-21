@@ -9,7 +9,7 @@ from matplotlib import pyplot
 from .warhammer import chain_rolls
 
 
-def demo():
+def demo() -> None:
     # attacks
     attacks = dice(1)
     # hit: 4+ exploding 6s
@@ -43,8 +43,9 @@ def demo():
     print(matplotlib.backends.backend)
 
 
-def main():
+def main() -> int:
     demo()
+    return 0
 
 
 if __name__ == "__main__":

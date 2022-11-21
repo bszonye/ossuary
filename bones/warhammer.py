@@ -1,5 +1,5 @@
 import dataclasses
-from typing import NewType, Optional
+from typing import NewType, Optional, Union
 from typing import SupportsFloat as Numeric
 
 import lea
@@ -12,10 +12,10 @@ __all__ = (
     "chain_rolls",
 )
 
-# TODO: set up a type checker
-Distance = NewType("Distance", Numeric)  # e.g. for move & range characteristics
+Distance = Numeric  # e.g. for move & range characteristics
 TargetNumber = NewType("TargetNumber", int)  # target for roll characteristics
 DiceModifier = NewType("DiceModifier", int)  # e.g. rend
+Randomizable = Union[Numeric, lea.Lea]
 
 lea.set_prob_type("r")
 
@@ -48,7 +48,7 @@ class Datasheet:
     pass
 
 
-def chain_rolls(n, d):
+def chain_rolls(n: Randomizable, d: lea.Lea) -> lea.Lea:
     # n  number of incoming rolls (as pmf)
     # d  pmf for this roll
     nx = n if isinstance(n, lea.Lea) else lea.vals(n)
