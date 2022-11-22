@@ -1,8 +1,18 @@
+"""bones.__main__: utility script for dice analysis
+
+usage: bones [args...]
+       python -m bones [args...]
+
+TODO: options, arguments, and usage notes
+"""
+
+__all__ = ["demo", "main"]
+
 from fractions import Fraction
+import sys
 
 import lea
 from lea.leaf import dice
-
 import matplotlib
 from matplotlib import pyplot
 
@@ -43,9 +53,9 @@ def demo() -> None:
     print(matplotlib.backends.backend)
 
 
-def main() -> int:
-    demo()
-    return 0
+def main() -> None:
+    print(__name__)
+    sys.exit(0)
 
 
 if __name__ == "__main__":

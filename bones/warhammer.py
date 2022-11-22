@@ -1,8 +1,7 @@
-import dataclasses
-from typing import NewType, Optional, Union
-from typing import SupportsFloat as Numeric
+"""bones.warhammer: TODO
 
-import lea
+TODO
+"""
 
 __all__ = (
     "AttackCounter",
@@ -11,6 +10,12 @@ __all__ = (
     "Weapon",
     "chain_rolls",
 )
+
+import dataclasses
+from typing import NewType, Optional, Union
+from typing import SupportsFloat as Numeric
+
+import lea
 
 Distance = Numeric  # e.g. for move & range characteristics
 TargetNumber = NewType("TargetNumber", int)  # target for roll characteristics
