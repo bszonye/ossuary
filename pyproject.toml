@@ -25,10 +25,25 @@ matplotlib = "^3.6.2"
 PyGObject = "^3.42.2"
 
 [tool.poetry.group.dev.dependencies]
-flake8 = "^5.0.4"
 black = "^22.10.0"
-pytest = "^7.2.0"
+flake8 = "^5.0.4"
+flake8-bugbear = "^22.10.27"
+flake8-docstrings = "^1.6.0"
+flake8-isort = "^5.0.3"
+isort = "^5.10.1"
 mypy = "^0.991"
+pydocstyle = "^6.1.1"
+pytest = "^7.2.0"
+pre-commit = "^2.20.0"
+
+[tool.black]
+line-length = 86
+
+[tool.isort]
+profile = "black"
+line_length = 86
+combine_as_imports = true
+skip_gitignore = true
 
 [tool.mypy]
 strict = true

@@ -1,1 +1,1 @@
-"""bones: dice analysis toolkit"""
+"""bones: dice analysis toolkit."""

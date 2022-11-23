@@ -1,7 +1,4 @@
-"""bones.warhammer: TODO
-
-TODO
-"""
+"""bones.warhammer: dice analysis for Warhammer games."""
 
 __all__ = (
     "AttackCounter",
@@ -12,8 +9,7 @@ __all__ = (
 )
 
 import dataclasses
-from typing import NewType, Optional, Union
-from typing import SupportsFloat as Numeric
+from typing import NewType, Optional, SupportsFloat as Numeric, Union
 
 import lea
 
@@ -27,6 +23,8 @@ lea.set_prob_type("r")
 
 @dataclasses.dataclass(frozen=True)
 class AttackCounter:
+    """Results counter for each step of the attack sequence."""
+
     # TODO: addition operator?
     attacks: int
     wounds: int = 0
@@ -35,25 +33,30 @@ class AttackCounter:
 
 
 class Weapon:
-    # TODO: revisit names, rename range
+    """Weapon charcteristics."""
+
+    # TODO: rename range
     range: Optional[Distance] = None
-    hit: Optional[TargetNumber] = None
-    wound: Optional[TargetNumber] = None
+    to_hit: Optional[TargetNumber] = None
+    to_wound: Optional[TargetNumber] = None
     rend: Optional[DiceModifier] = None
     pass
 
 
 class Warscroll:
-    # Warhammer Age of Sigmar unit characteristics & abilities
+    """Unit characteristics & abilities for Warhammer Age of Sigmar."""
+
     pass
 
 
 class Datasheet:
-    # Warhammer 40,000 unit characteristics & abilities
+    """Unit characteristics & abilities for Warhammer 40,000."""
+
     pass
 
 
 def chain_rolls(n: Randomizable, d: lea.Lea) -> lea.Lea:
+    """Analyze one step in the attack sequence."""
     # n  number of incoming rolls (as pmf)
     # d  pmf for this roll
     nx = n if isinstance(n, lea.Lea) else lea.vals(n)

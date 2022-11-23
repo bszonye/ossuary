@@ -1,4 +1,4 @@
-"""bones.__main__: utility script for dice analysis
+"""bones.__main__: utility script for dice analysis.
 
 usage: bones [args...]
        python -m bones [args...]
@@ -8,18 +8,19 @@ TODO: options, arguments, and usage notes
 
 __all__ = ["demo", "main"]
 
-from fractions import Fraction
 import sys
+from fractions import Fraction
 
 import lea
-from lea.leaf import dice
 import matplotlib
+from lea.leaf import dice
 from matplotlib import pyplot
 
-from .warhammer import chain_rolls
+from bones.warhammer import chain_rolls
 
 
 def demo() -> None:
+    """Show a few simple placeholder demos."""
     # attacks
     attacks = dice(1)
     # hit: 4+ exploding 6s
@@ -54,7 +55,9 @@ def demo() -> None:
 
 
 def main() -> None:
+    """Script entry point. Command-line interface TBD."""
     print(__name__)
+    demo()
     sys.exit(0)
 
 
