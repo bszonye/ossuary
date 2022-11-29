@@ -6,7 +6,7 @@ usage: bones [args...]
 TODO: options, arguments, and usage notes
 """
 
-__all__ = ["demo", "main"]
+__all__ = ["plot_demo", "profile_demo", "main"]
 
 import sys
 from fractions import Fraction
@@ -16,10 +16,19 @@ import matplotlib
 from lea.leaf import dice
 from matplotlib import pyplot
 
-from bones.warhammer import chain_rolls
+from bones.warhammer import Characteristic, Profile, chain_rolls
 
 
-def demo() -> None:
+def profile_demo() -> None:
+    """Demonstrate profile classes."""
+    c1 = Characteristic(name="Column 1", value=1)
+    c2 = Characteristic(name="Column 2", value=2)
+    ptest = Profile("Test Profile", [c1, c2])
+    for item in ptest:
+        print(item)
+
+
+def plot_demo() -> None:
     """Show a few simple placeholder demos."""
     # attacks
     attacks = dice(1)
@@ -57,7 +66,7 @@ def demo() -> None:
 def main() -> None:
     """Script entry point. Command-line interface TBD."""
     print(__name__)
-    demo()
+    profile_demo()
     sys.exit(0)
 
 
