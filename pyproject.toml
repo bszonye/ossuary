@@ -19,8 +19,11 @@ packages = [
 bones = "bones.__main__:main"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.8"  # required for positional-only parameters
 lea = "^3.4.2"
+tomli = { version = "^2.0.1", python = "<3.11" }
+
+[tool.poetry.group.plot.dependencies]  # optional plotting support
 matplotlib = "^3.6.2"
 PyGObject = "^3.42.2"
 
@@ -44,6 +47,7 @@ line-length = 86
 profile = "black"
 line_length = 86
 combine_as_imports = true
+order_by_type = false
 skip_gitignore = true
 
 [tool.mypy]
