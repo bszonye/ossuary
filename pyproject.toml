@@ -19,7 +19,10 @@ packages = [
 bones = "bones.__main__:main"
 
 [tool.poetry.dependencies]
-python = "^3.8"  # required for positional-only parameters
+# python  required for
+# ^3.8.1  flake8 = ^6.0.0
+# ^3.8    positional-only parameters
+python = "^3.8.1"
 lea = "^3.4.2"
 tomli = { version = "^2.0.1", python = "<3.11" }
 
@@ -29,7 +32,7 @@ PyGObject = "^3.42.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^22.10.0"
-flake8 = "^5.0.4"
+flake8 = "^6.0.0"
 flake8-black = "^0.3.5"
 flake8-bugbear = "^22.10.27"
 flake8-docstrings = "^1.6.0"
