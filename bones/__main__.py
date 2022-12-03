@@ -14,24 +14,11 @@ from fractions import Fraction
 import lea
 from lea.leaf import dice
 
-from bones.warhammer import chain_rolls, Characteristic, Profile, Weapon
+from bones.warhammer import chain_rolls
 
 
 def profile_demo() -> None:
     """Demonstrate profile classes."""
-    c1 = Characteristic(name="Column 1", value=1)
-    c2 = Characteristic(name="Column 2", value=2)
-    clist = (c1, c2)
-    plist = Profile(clist, name="List Profile")
-    print(plist)
-    cdict = {c1.name: c1.value, c2.name: c2.value}
-    pdict = Profile(cdict, name="Dict Profile")
-    print(pdict)
-    ctoml = "['Column 2']\nvalue='TODO'\n['Column 3']\nvalue=3"
-    ptoml = Weapon.loads(ctoml, name="TOML Profile")
-    print(ptoml)
-    # pfile = Warscroll.load(sys.stdin.buffer, name="TOML Warscroll")
-    # print(pfile)
 
 
 def plot_demo() -> None:

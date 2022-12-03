@@ -54,9 +54,14 @@ order_by_type = false
 skip_gitignore = true
 
 [tool.mypy]
+files = "."
 strict = true
 warn_no_return = true
 warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = "lea.*"
@@ -65,3 +70,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "matplotlib.*"
 ignore_missing_imports = true
+
+[tool.pydocstyle]
+match = '.*[.]py'
