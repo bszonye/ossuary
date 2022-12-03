@@ -17,7 +17,6 @@ import re
 import sys
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import MISSING
-from itertools import chain
 from typing import Any, IO, Optional, SupportsFloat, Type, TypeVar, Union
 
 import lea
@@ -64,28 +63,47 @@ class Attribute:
 
     @classmethod
     def codify(cls, __s: str, /) -> str:
-        """Convert string to a Python identifier."""
-        fold = __s.casefold()
-        fold = re.sub(r"[\W_]+", "_", fold)
-        fold = re.sub(r"^(?=\d)", "n", fold)
-        fold = re.sub(r"^_+", "", fold)
-        return fold
+        """Convert string to a Python identifier.
+
+        * Fold case.
+        * Consolidate non-alphanumerics to single underscores.
+        * Remove leading underscores and guard leading digits.
+        """
+        code = __s.casefold()
+        code = re.sub(r"[\W_]+", "_", code).lstrip("_")
+        code = re.sub(r"^(?=\d)", "n", code)
+        return code
 
     @classmethod
     def tomlize(cls, __s: str, /) -> str:
-        """Convert string to a TOML key."""
-        fold = __s.casefold()
-        fold = re.sub(r"[\W_]+", "-", fold)  # prefer hyphens to underscores
-        return fold
+        """Convert string to a TOML key.
+
+        * Fold case.
+        * Consolidate non-alphanumerics to single hyphens.
+        * Convert non-ASCII characters to underscores.
+        """
+        toml = __s.casefold()
+        toml = re.sub(r"[\W_]+", "-", toml)
+        toml = re.sub(r"[^-0-9A-Za-z]", "_", toml)
+        return toml
 
     @classmethod
     def autoalias(cls, *args: str) -> frozenset[str]:
         """Create a set of aliases from a sequence of names."""
-        return frozenset(
-            chain.from_iterable(
-                (s, s.casefold(), cls.codify(s), cls.tomlize(s)) for s in args
-            )
-        )
+        aliases = set(args)
+        # Find the closure of casefold, codify, and tomlize.
+        extra: set[str] = set()
+        while extra != aliases:
+            aliases |= extra
+            for alias in aliases:
+                extra |= {
+                    alias,
+                    alias.casefold(),
+                    cls.codify(alias),
+                    cls.tomlize(alias),
+                }
+        # Return the closure as a frozenset.
+        return frozenset(aliases)
 
     def __init__(
         self,
@@ -104,8 +122,8 @@ class Attribute:
         """
         self.factory = factory
         self.name = name
-        self.python = python if python else self.codify(toml if toml else name)
-        self.toml = toml if toml else self.tomlize(python if python else name)
+        self.python = python if python else self.codify(name)
+        self.toml = toml if toml else self.tomlize(name)
         self.aliases = self.autoalias(self.name, self.python, self.toml, *aliases)
 
     def __repr__(self) -> str:
@@ -115,14 +133,18 @@ class Attribute:
             repr(self.name),
         ]
         # Add non-default arguments.
-        pyname = self.codify(self.name)
-        tomlname = self.tomlize(self.name)
-        if self.python != pyname or self.toml != tomlname:
+        if self.python != self.codify(self.name):
             args.append(f"python={self.python!r}")
+        if self.toml != self.tomlize(self.name):
             args.append(f"toml={self.toml!r}")
         aliases = self.aliases - self.autoalias(self.name, self.python, self.toml)
         if aliases:
-            args.append(f"aliases={tuple(sorted(aliases))!r}")
+            # Remove redundant aliases.
+            minset = set(aliases)
+            for alias in aliases:
+                extra = self.autoalias(alias) - {alias}
+                minset -= extra
+            args.append(f"aliases={tuple(sorted(minset))!r}")
         # Join the result.
         return f"{type(self).__name__}({', '.join(args)})"
 
