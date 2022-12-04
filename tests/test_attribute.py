@@ -258,3 +258,68 @@ class TestAttributeRepr:
         attr = Attribute(int, "A", python="b", toml="c", aliases=("D", "E"))
         out = "Attribute(int, 'A', python='b', toml='c', aliases=('D', 'E'))"
         assert repr(attr) == out
+
+
+class TestAttributeComparison:
+    """Test comparison operators over Attribute objects."""
+
+    attributes = [  # Sorted for testing.
+        Attribute(int, "A", python="b", toml="c", aliases=("D", "E")),
+        Attribute(str, "ABC", aliases=("Alpha", "Alpha 1 2 3")),
+        Attribute(float, "Müllerstraße", toml="muellerstrasse"),
+        Attribute(dict, "Range", python="attack_range"),
+        Attribute(list, "Test Attribute"),
+        Attribute(list, "Z"),
+        Attribute(list, "Z", aliases={"z1"}),
+        Attribute(list, "Z", aliases={"z2"}),
+        Attribute(list, "Z", toml="z1"),
+        Attribute(list, "Z", toml="z2"),
+        Attribute(list, "Z", python="z1"),
+        Attribute(list, "Z", python="z2"),
+    ]
+
+    def test_eq(self):
+        """Test Attribute == Attribute."""
+        assert self.attributes[0] == self.attributes[0]
+        assert not self.attributes[0] == self.attributes[-1]
+        assert not self.attributes[-1] == self.attributes[0]
+        assert self.attributes[-1] == self.attributes[-1]
+
+    def test_ne(self):
+        """Test Attribute != Attribute."""
+        assert not self.attributes[0] != self.attributes[0]
+        assert self.attributes[0] != self.attributes[-1]
+        assert self.attributes[-1] != self.attributes[0]
+        assert not self.attributes[-1] != self.attributes[-1]
+
+    def test_lt(self):
+        """Test Attribute < Attribute."""
+        assert not self.attributes[0] < self.attributes[0]
+        assert self.attributes[0] < self.attributes[-1]
+        assert not self.attributes[-1] < self.attributes[0]
+        assert not self.attributes[-1] < self.attributes[-1]
+
+    def test_le(self):
+        """Test Attribute <= Attribute."""
+        assert self.attributes[0] <= self.attributes[0]
+        assert self.attributes[0] <= self.attributes[-1]
+        assert not self.attributes[-1] <= self.attributes[0]
+        assert self.attributes[-1] <= self.attributes[-1]
+
+    def test_gt(self):
+        """Test Attribute > Attribute."""
+        assert not self.attributes[0] > self.attributes[0]
+        assert not self.attributes[0] > self.attributes[-1]
+        assert self.attributes[-1] > self.attributes[0]
+        assert not self.attributes[-1] > self.attributes[-1]
+
+    def test_ge(self):
+        """Test Attribute >= Attribute."""
+        assert self.attributes[0] >= self.attributes[0]
+        assert not self.attributes[0] >= self.attributes[-1]
+        assert self.attributes[-1] >= self.attributes[0]
+        assert self.attributes[-1] >= self.attributes[-1]
+
+    def test_sort(self):
+        """Test Attribute sorting."""
+        assert self.attributes == sorted(self.attributes)

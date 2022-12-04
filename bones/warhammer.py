@@ -12,12 +12,12 @@ __all__ = (
     "chain_rolls",
 )
 
-import dataclasses
 import re
 import sys
+from abc import ABCMeta
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from dataclasses import MISSING
-from typing import Any, IO, Optional, SupportsFloat, Type, TypeVar, Union
+from dataclasses import dataclass, field, KW_ONLY, MISSING
+from typing import Any, ClassVar, IO, Optional, SupportsFloat, Type, TypeVar, Union
 
 import lea
 
@@ -41,7 +41,7 @@ NameMapping = Mapping[str, Any]
 lea.set_prob_type("r")
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclass(frozen=True)
 class AttackCounter:
     """Results counter for each step of the attack sequence."""
 
@@ -52,35 +52,25 @@ class AttackCounter:
     kills: int = 0
 
 
+@dataclass(frozen=True, order=True)
 class Attribute:
     """Descriptor for profile attributes."""
 
-    factory: AttributeFactory  # type constructor
+    factory: AttributeFactory = field(compare=False)  # type constructor
     name: str  # human display name
-    python: str  # Python attribute name
-    toml: str  # preferred TOML key name
-    aliases: frozenset[str]  # list of acceptable aliases
+    _: KW_ONLY
+    python: str = ""  # Python attribute name
+    toml: str = ""  # preferred TOML key name
+    aliases: frozenset[str] = frozenset()  # list of acceptable aliases
 
-    def __init__(
-        self,
-        factory: AttributeFactory,
-        name: str,
-        python: Optional[str] = None,
-        toml: Optional[str] = None,
-        aliases: Iterable[str] = (),
-    ) -> None:
-        """Construct an attribute descriptor.
-
-        Each attribute requires a one-argument callable (such as a type
-        constructor) to convert and validate input data.  They may also
-        need specialized names for Python code and TOML keys, or
-        additional aliases for ease of use.
-        """
-        self.factory = factory
-        self.name = name
-        self.python = python if python else self.codify(name)
-        self.toml = toml if toml else self.tomlize(name)
-        self.aliases = self.autoalias(self.name, self.python, self.toml, *aliases)
+    def __post_init__(self) -> None:
+        """Fix up aliases."""
+        if not self.python:
+            object.__setattr__(self, "python", self.codify(self.name))
+        if not self.toml:
+            object.__setattr__(self, "toml", self.tomlize(self.name))
+        aliases = self.autoalias(self.name, self.python, self.toml, *self.aliases)
+        object.__setattr__(self, "aliases", aliases)
 
     @classmethod
     def codify(cls, __s: str, /) -> str:
@@ -155,7 +145,22 @@ class Attribute:
         return f"{type(self).__name__}({', '.join(args)})"
 
 
-class Profile(NameMapping):
+class ProfileMeta(ABCMeta):
+    """Metaclass to manage profile attributes."""
+
+    ATTRIBUTES: frozenset[Attribute]
+    CLASS_ATTRIBUTES: Sequence[Attribute]
+
+    def __init__(cls, *args: Any, **kwargs: Any) -> None:  # noqa: B902
+        """Initialize ATTRIBUTES for each Profile class."""
+        super().__init__(*args, **kwargs)
+        attrs: set[Attribute] = set()
+        for c in cls.__mro__:
+            attrs |= set(getattr(c, "CLASS_ATTRIBUTES", ()))
+        cls.ATTRIBUTES = frozenset(attrs)
+
+
+class Profile(NameMapping, metaclass=ProfileMeta):
     """Tabular data for units and weapons.
 
     Most Warhammer stats are **characteristics** organized into tables
@@ -165,9 +170,15 @@ class Profile(NameMapping):
 
     """
 
+    ATTRIBUTES: ClassVar[frozenset[Attribute]]
+    CLASS_ATTRIBUTES: ClassVar[Sequence[Attribute]] = ()
+
+    # Cache for merged subclass attributes.
+    _merged_attribute_cache: ClassVar[dict[str, frozenset[Attribute]]] = {}
+
     name: Optional[str]
-    _attributes: Sequence[Attribute] = ()
-    _aliases: dict[str, str] = {}
+    _attributes: frozenset[Attribute]
+    _aliases: dict[str, str]
 
     def __init__(
         self,
@@ -175,11 +186,15 @@ class Profile(NameMapping):
         /,
         *,
         name: Optional[str] = None,
+        attributes: Sequence[Attribute] = (),
+        inherit: bool = True,
     ):
         """Initialize characteristics."""
         # Convert input data to a characteristic dictionary.
-        # TODO: initialize ATTR_MAP
-        # TODO: initialize attributes
+        inherited = self.ATTRIBUTES if inherit else frozenset()
+        self._attributes = frozenset(attributes) | inherited
+        # TODO: Initialize aliases from instance attributes.
+        # TODO: Initialize attribute values from input mapping.
         self.name = name
 
     @classmethod
@@ -253,12 +268,16 @@ class Profile(NameMapping):
 
     def __repr__(self) -> str:
         """Dump object data in repr() format."""
-        # TODO: test this
-        return "{}({}, name={})".format(
-            type(self).__name__,
-            repr(dict(self.items())),
-            repr(self.name),
-        )
+        args = [f"{dict(self.items())!r}"]
+        if self.name is not None:
+            args.append(f"name={self.name!r}")
+        extra = self._attributes - self.ATTRIBUTES
+        if extra:
+            args.append(f"{tuple(sorted(extra))!r}")
+            if extra == self._attributes:
+                args.append("inherit=False")
+        # Join the result.
+        return f"{type(self).__name__}({', '.join(args)})"
 
 
 class Weapon(Profile):
