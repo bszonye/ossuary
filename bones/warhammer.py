@@ -61,6 +61,27 @@ class Attribute:
     toml: str  # preferred TOML key name
     aliases: frozenset[str]  # list of acceptable aliases
 
+    def __init__(
+        self,
+        factory: AttributeFactory,
+        name: str,
+        python: Optional[str] = None,
+        toml: Optional[str] = None,
+        aliases: Iterable[str] = (),
+    ) -> None:
+        """Construct an attribute descriptor.
+
+        Each attribute requires a one-argument callable (such as a type
+        constructor) to convert and validate input data.  They may also
+        need specialized names for Python code and TOML keys, or
+        additional aliases for ease of use.
+        """
+        self.factory = factory
+        self.name = name
+        self.python = python if python else self.codify(name)
+        self.toml = toml if toml else self.tomlize(name)
+        self.aliases = self.autoalias(self.name, self.python, self.toml, *aliases)
+
     @classmethod
     def codify(cls, __s: str, /) -> str:
         """Convert string to a Python identifier.
@@ -89,42 +110,27 @@ class Attribute:
 
     @classmethod
     def autoalias(cls, *args: str) -> frozenset[str]:
-        """Create a set of aliases from a sequence of names."""
+        """Create lookup aliases from a sequence of names.
+
+        This find the closure of casefold, codify, and tomlize.  The
+        alias lookup function uses case-insensitive matching with
+        casefold, and the other two convert aliases to legal Python
+        identifiers and TOML keys.  The algorithm finds the closure of
+        all transformations for reliability and to make the operation
+        more reversible for the __repr__ method.
+        """
         aliases = set(args)
-        # Find the closure of casefold, codify, and tomlize.
-        extra: set[str] = set()
-        while extra != aliases:
-            aliases |= extra
+        closure: set[str] = set()
+        while aliases != closure:  # Stop when the closure is stable.
+            aliases |= closure
             for alias in aliases:
-                extra |= {
+                closure |= {
                     alias,
                     alias.casefold(),
                     cls.codify(alias),
                     cls.tomlize(alias),
                 }
-        # Return the closure as a frozenset.
-        return frozenset(aliases)
-
-    def __init__(
-        self,
-        factory: AttributeFactory,
-        name: str,
-        python: Optional[str] = None,
-        toml: Optional[str] = None,
-        aliases: Iterable[str] = (),
-    ) -> None:
-        """Construct an attribute descriptor.
-
-        Each attribute requires a one-argument callable (such as a type
-        constructor) to convert and validate input data.  They also need
-        names and optional aliases for contexts such as Python code,
-        TOML, and abbreviation.
-        """
-        self.factory = factory
-        self.name = name
-        self.python = python if python else self.codify(name)
-        self.toml = toml if toml else self.tomlize(name)
-        self.aliases = self.autoalias(self.name, self.python, self.toml, *aliases)
+        return frozenset(closure)
 
     def __repr__(self) -> str:
         """Dump attribute in repr() format."""
@@ -197,7 +203,7 @@ class Profile(NameMapping):
     def alias(self, alias: str) -> Optional[str]:
         """Get an attribute name from one of its aliases."""
         # TODO: initialize self._aliases if it isn't already done
-        return self._aliases.get(alias)
+        return self._aliases.get(alias.casefold())
 
     def attribute(
         self,
