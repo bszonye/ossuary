@@ -30,7 +30,7 @@ def plot_demo() -> None:
         return
 
     # attacks
-    attacks = dice(1)
+    attacks: lea.Alea = dice(1)
     # hit: 4+ exploding 6s
     hit = (0, Fraction(3, 6)), (1, Fraction(2, 6)), (2, Fraction(1, 6))
     # wound: 4+, TODO: 1 MW instead on 6

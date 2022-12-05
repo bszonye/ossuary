@@ -1,5 +1,7 @@
 """bones.warhammer: dice analysis for Warhammer games."""
 
+# from __future__ import annotations
+
 __all__ = (
     "AttackCounter",
     "Attribute",
@@ -12,12 +14,15 @@ __all__ = (
     "chain_rolls",
 )
 
-import re
+import builtins
+import keyword
 import sys
+import unicodedata
 from abc import ABCMeta
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass, field, KW_ONLY, MISSING
-from typing import Any, ClassVar, IO, Optional, SupportsFloat, Type, TypeVar, Union
+from dataclasses import dataclass, field
+from functools import cache
+from typing import Any, BinaryIO, ClassVar, Optional, Self, SupportsFloat, Union
 
 import lea
 
@@ -29,14 +34,12 @@ else:
     import tomllib
 
 # Type definitions.
-# TODO: remove unused types
-AttributeFactory = Callable[[Any], Any]
 Numeric = SupportsFloat  # reasonable approximation of "numeric"
-Distance = Numeric  # e.g. for move & range characteristics
-ProfileType = TypeVar("ProfileType", bound="Profile")
-Randomizable = Union[Numeric, lea.Lea]
+AttributeFactory = Union[type[Any], Callable[..., Any]]
 NameDict = dict[str, Any]
 NameMapping = Mapping[str, Any]
+NamePairs = Iterable[tuple[str, Any]]
+Randomizable = Union[Numeric, lea.Lea]  # TODO: remove
 
 lea.set_prob_type("r")
 
@@ -56,91 +59,89 @@ class AttackCounter:
 class Attribute:
     """Descriptor for profile attributes."""
 
-    factory: AttributeFactory = field(compare=False)  # type constructor
     name: str  # human display name
-    _: KW_ONLY
-    python: str = ""  # Python attribute name
-    toml: str = ""  # preferred TOML key name
-    aliases: frozenset[str] = frozenset()  # list of acceptable aliases
+    factory: AttributeFactory = field(default=str, compare=False)
 
-    def __post_init__(self) -> None:
-        """Fix up aliases."""
-        if not self.python:
-            object.__setattr__(self, "python", self.codify(self.name))
-        if not self.toml:
-            object.__setattr__(self, "toml", self.tomlize(self.name))
-        aliases = self.autoalias(self.name, self.python, self.toml, *self.aliases)
-        object.__setattr__(self, "aliases", aliases)
+    @staticmethod
+    @cache
+    def normalize(
+        __s: str, /, *, connector: str = "_", python: Optional[bool] = None
+    ) -> str:
+        """Normalize string to an identifier or dictionary key.
 
-    @classmethod
-    def codify(cls, __s: str, /) -> str:
-        """Convert string to a Python identifier.
+        Normalization steps:
+        * Apply the NFKC, casefold, and NFC transformations.
+        * Replace non-identifier characters with the given connector.
+        * Remove redundant connectors from the middle and ends.
 
-        * Fold case.
-        * Consolidate non-alphanumerics to single underscores.
-        * Remove leading underscores and guard leading digits.
+        Python-specific rules:
+        * Leading numerals get a guard prefix (e.g. A123_abc).
+        * Builtin names and keywords get a guard suffix (e.g. range_).
+
+        The extra Python rules apply if the connector is a legal
+        xid_continue sequence and python is not False.  Raises
+        ValueError if python is True but the connector is not legal
+        in identifiers.
         """
-        code = __s.casefold()
-        code = re.sub(r"[\W_]+", "_", code).lstrip("_")
-        code = re.sub(r"^(?=\d)", "n", code)
-        return code
 
-    @classmethod
-    def tomlize(cls, __s: str, /) -> str:
-        """Convert string to a TOML key.
+        def is_xid_continue(__s: str, /) -> bool:
+            """Check if a string is legal in identifiers."""
+            return ("a" + __s).isidentifier()
 
-        * Fold case.
-        * Consolidate non-alphanumerics to single hyphens.
-        * Convert non-ASCII characters to underscores.
-        """
-        toml = __s.casefold()
-        toml = re.sub(r"[\W_]+", "-", toml)
-        toml = re.sub(r"[^-0-9A-Za-z]", "_", toml)
-        return toml
+        # Check Python identifier rules.
+        if python is None:
+            python = is_xid_continue(connector)
+        elif python and not is_xid_continue(connector):
+            raise ValueError(f"{connector!r} is not valid in identifiers")
 
-    @classmethod
-    def autoalias(cls, *args: str) -> frozenset[str]:
-        """Create lookup aliases from a sequence of names.
+        # First, normalize Unicode with NFKC -> casefold -> NFC.
+        norm = unicodedata.normalize("NFKC", __s)
+        norm = unicodedata.normalize("NFC", norm.casefold())
 
-        This find the closure of casefold, codify, and tomlize.  The
-        alias lookup function uses case-insensitive matching with
-        casefold, and the other two convert aliases to legal Python
-        identifiers and TOML keys.  The algorithm finds the closure of
-        all transformations for reliability and to make the operation
-        more reversible for the __repr__ method.
-        """
-        aliases = set(args)
-        closure: set[str] = set()
-        while aliases != closure:  # Stop when the closure is stable.
-            aliases |= closure
-            for alias in aliases:
-                closure |= {
-                    alias,
-                    alias.casefold(),
-                    cls.codify(alias),
-                    cls.tomlize(alias),
-                }
-        return frozenset(closure)
+        # Blank all non-identifier characters.  Also blank any existing
+        # Unicode connectors (Pc) in the input string, to help with
+        # removing redundant connectors below.
+        norm = "".join(
+            " " if unicodedata.category(c) == "Pc" or not is_xid_continue(c) else c
+            for c in norm
+        )
+
+        # Combine all normalized substrings with the given connector.
+        # This uses split() to remove redundant connectors in the middle
+        # and at both ends.
+        norm = connector.join(norm.split())
+
+        # Normalization is complete here for custom connectors.
+        # Otherwise, continue to the Python-specific rules.
+        if not python:
+            return norm
+
+        # Guard strings that start with an xid_continue character that
+        # is not in xid_start.  Adds a capital letter prefix, as that
+        # will not occur in a case-folded string.
+        if not norm.isidentifier():
+            norm = "A" + norm
+
+        # Guard against collisions with builtins and keywords.  Adds an
+        # underscore suffix as recommended by PEP 8.
+        if norm in builtins.__dict__ or keyword.iskeyword(norm):
+            norm += "_"
+
+        return norm
+
+    def python(self) -> str:
+        """Return the attribute's normalized Python identifier."""
+        return self.normalize(self.name)
+
+    def toml(self) -> str:
+        """Return the attribute's normalized TOML key."""
+        return self.normalize(self.name, connector="-")
 
     def __repr__(self) -> str:
         """Dump attribute in repr() format."""
-        args = [
-            self.factory.__name__,
-            repr(self.name),
-        ]
-        # Add non-default arguments.
-        if self.python != self.codify(self.name):
-            args.append(f"python={self.python!r}")
-        if self.toml != self.tomlize(self.name):
-            args.append(f"toml={self.toml!r}")
-        aliases = self.aliases - self.autoalias(self.name, self.python, self.toml)
-        if aliases:
-            # Remove redundant aliases.
-            minset = set(aliases)
-            for alias in aliases:
-                extra = self.autoalias(alias) - {alias}
-                minset -= extra
-            args.append(f"aliases={tuple(sorted(minset))!r}")
+        args = [repr(self.name)]
+        if self.factory != str:
+            args.append(self.factory.__name__)
         # Join the result.
         return f"{type(self).__name__}({', '.join(args)})"
 
@@ -150,6 +151,14 @@ class ProfileMeta(ABCMeta):
 
     ATTRIBUTES: frozenset[Attribute]
     CLASS_ATTRIBUTES: Sequence[Attribute]
+
+    def __new__(
+        cls,
+        name: str,
+        bases: tuple[type[Any], ...],
+        namespace: NameDict,
+    ) -> "ProfileMeta":
+        return super().__new__(cls, name, bases, namespace)
 
     def __init__(cls, *args: Any, **kwargs: Any) -> None:  # noqa: B902
         """Initialize ATTRIBUTES for each Profile class."""
@@ -170,113 +179,80 @@ class Profile(NameMapping, metaclass=ProfileMeta):
 
     """
 
+    # MERGED ATTRIBUTES:
+    # The public class variable is specialized for each Profile subclass
+    # to contain the union of all its class attributes with all of the
+    # superclass attributes.  (Automatically set up by the metaclass.)
     ATTRIBUTES: ClassVar[frozenset[Attribute]]
-    CLASS_ATTRIBUTES: ClassVar[Sequence[Attribute]] = ()
 
-    # Cache for merged subclass attributes.
-    _merged_attribute_cache: ClassVar[dict[str, frozenset[Attribute]]] = {}
+    # Default attributes for this class.
+    CLASS_ATTRIBUTES = frozenset({Attribute("Name")})
+    name: str
 
-    name: Optional[str]
-    _attributes: frozenset[Attribute]
-    _aliases: dict[str, str]
-
-    def __init__(
-        self,
-        __c: Union[NameDict, Iterable[Any]],
-        /,
-        *,
-        name: Optional[str] = None,
-        attributes: Sequence[Attribute] = (),
-        inherit: bool = True,
-    ):
+    def __init__(self, __c: Union[NameMapping, NamePairs]):
         """Initialize characteristics."""
-        # Convert input data to a characteristic dictionary.
-        inherited = self.ATTRIBUTES if inherit else frozenset()
-        self._attributes = frozenset(attributes) | inherited
-        # TODO: Initialize aliases from instance attributes.
-        # TODO: Initialize attribute values from input mapping.
-        self.name = name
+        # Convert input data to attributes.
+        factories = {a.python(): a.factory for a in self.ATTRIBUTES}
+        mapping = __c if isinstance(__c, Mapping) else dict(__c)
+        for k, v in mapping.items():
+            # TODO: Error handling / better error messages.
+            attribute = Attribute.normalize(k)
+            factory = factories[attribute]
+            value = factory(v)
+            setattr(self, attribute, value)
 
     @classmethod
-    def load(
-        cls: Type[ProfileType], __fp: IO[bytes], /, *args: Any, **kwargs: Any
-    ) -> ProfileType:
+    def load(cls, __fp: BinaryIO, /, *args: Any, **kwargs: Any) -> Self:
         """Construct a new Profile object from a TOML file."""
         # TODO: test this
         data = tomllib.load(__fp)
         return cls(data, *args, **kwargs)
 
     @classmethod
-    def loads(
-        cls: Type[ProfileType], __s: str, /, *args: Any, **kwargs: Any
-    ) -> ProfileType:
+    def loads(cls, __s: str, /, *args: Any, **kwargs: Any) -> Self:
         """Construct a new Profile object from a TOML string."""
         # TODO: test this
         data = tomllib.loads(__s)
         return cls(data, *args, **kwargs)
 
-    def alias(self, alias: str) -> Optional[str]:
-        """Get an attribute name from one of its aliases."""
-        # TODO: initialize self._aliases if it isn't already done
-        return self._aliases.get(alias.casefold())
+    def __getattr__(self, name: str) -> Any:
+        """Look up an attribute by name, with normalization.
 
-    def attribute(
-        self,
-        alias: str,
-        default: Any = MISSING,
-    ) -> Any:
-        """Find an attribute from one of its aliases."""
-        # Look up the attribute from the alias.
-        attribute = self.alias(alias)
-        if attribute is None:
-            if default is MISSING:
-                error = "'{}' object has no attribute or alias '{}'".format(
-                    type(self).__name__, alias
-                )
-                if sys.version_info[:2] < (3, 10):
-                    raise AttributeError(error)
-                raise AttributeError(error, name=alias, obj=self)
-            return default
-        # Return the attribute value.
-        value = getattr(self, attribute, default)
-        if value is MISSING:
-            name = "attribute '{}'".format(attribute)
-            if attribute != alias:
-                name += " (alias '{}')".format(alias)
-            error = "'{}' object has no {}".format(type(self).__name__, name)
+        Uses Attribute.normalize to convert a human-readable attribute
+        name or TOML key to an equivalent Python attribute identifier.
+        """
+        norm = Attribute.normalize(name)
+        try:
+            return self.__dict__[norm]
+        except KeyError:
+            names = f"attribute {norm!r}"
+            if norm != name:
+                names += f"or {name!r}"
+            error = f"{type(self).__name__!r} object has no {names}"
             if sys.version_info[:2] < (3, 10):
-                raise AttributeError(error)
-            raise AttributeError(error, name=alias, obj=self)
-        return value
+                raise AttributeError(error) from None
+            raise AttributeError(error, name=norm, obj=self) from None
 
     def __getitem__(self, key: str) -> Any:
         """Subscript notation to simplify profile attribute access."""
         try:
-            return self.attribute(key)
+            return getattr(self, key)
         except AttributeError as ex:
             raise KeyError(*ex.args) from None
 
     def __iter__(self) -> Iterator[str]:
         """Iterate over the names of all profile attributes."""
         # TODO: test this
-        return iter(a.python for a in self._attributes)
+        return iter(a.python() for a in self.ATTRIBUTES)
 
     def __len__(self) -> int:
         """Report the number of profile attributes."""
         # TODO: test this
-        return len(self._attributes)
+        return len(self.ATTRIBUTES)
 
     def __repr__(self) -> str:
         """Dump object data in repr() format."""
         args = [f"{dict(self.items())!r}"]
-        if self.name is not None:
-            args.append(f"name={self.name!r}")
-        extra = self._attributes - self.ATTRIBUTES
-        if extra:
-            args.append(f"{tuple(sorted(extra))!r}")
-            if extra == self._attributes:
-                args.append("inherit=False")
-        # Join the result.
         return f"{type(self).__name__}({', '.join(args)})"
 
 
@@ -309,6 +285,6 @@ def chain_rolls(n: Randomizable, d: lea.Lea) -> lea.Lea:
     """Analyze one step in the attack sequence."""
     # n  number of incoming rolls (as pmf)
     # d  pmf for this roll
-    nx = n if isinstance(n, lea.Lea) else lea.vals(n)
+    nx: lea.Lea = n if isinstance(n, lea.Lea) else lea.vals(n)
     switch = {nv: d.times(nv) if nv else 0 for nv in nx.support}
     return nx.switch(switch)

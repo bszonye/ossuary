@@ -20,9 +20,10 @@ bones = "bones.__main__:main"
 
 [tool.poetry.dependencies]
 # python  required for
+# ^3.11   typing.Self
 # ^3.8.1  flake8 = ^6.0.0
 # ^3.8    positional-only parameters
-python = "^3.8.1"
+python = "^3.11"
 lea = "^3.4.2"
 tomli = { version = "^2.0.1", python = "<3.11" }
 
@@ -37,11 +38,14 @@ flake8-black = "^0.3.5"
 flake8-bugbear = "^22.10.27"
 flake8-docstrings = "^1.6.0"
 flake8-isort = "^5.0.3"
+flake8-pyi = "^22.11.0"
 isort = "^5.10.1"
-mypy = "^0.991"
-pydocstyle = "^6.1.1"
-pytest = "^7.2.0"
+# mypy = "^0.991"
+mypy = {git = "git@github.com:python/mypy.git"}  # supports Self
 pre-commit = "^2.20.0"
+pydocstyle = "^6.1.1"
+pyright = "^1.1.282"
+pytest = "^7.2.0"
 
 [tool.black]
 line-length = 86
@@ -54,22 +58,19 @@ order_by_type = false
 skip_gitignore = true
 
 [tool.mypy]
+mypy_path = "stubs"
 files = "."
 strict = true
 warn_no_return = true
 warn_unreachable = true
 
-[[tool.mypy.overrides]]
-module = "tests.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "lea.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "matplotlib.*"
-ignore_missing_imports = true
-
 [tool.pydocstyle]
 match = '.*[.]py'
+
+[tool.pyright]
+typeCheckingMode = "strict"
+include = ["bones", "tests"]
+exclude = ["**/node_modules", "**/__pycache__", "**/.*"]
+stubPath = "stubs"
+pythonVersion = "3.11"
+pythonPlatform = "All"
