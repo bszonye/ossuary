@@ -232,3 +232,36 @@ class TestProfileNormalize:
         """Test Profile.normalize with incompatible parameters."""
         with pytest.raises(ValueError):
             Profile.normalize("", connector=":", python=True)
+
+
+class TestProfileMapping:
+    """Test Profile mapping operations."""
+
+    def test_sequence(self) -> None:
+        """Test Profile sequence operations: len, iter."""
+        subABC = SubProfileABC()
+        assert len(subABC) == 5
+        assert len(subABC) == len(tuple(subABC))
+
+    def test_mapping(self) -> None:
+        """Test attribute initialization in the Profile base class."""
+        subABC = SubProfileABC(name="Test")
+        assert subABC["name"] == "Test"  # exact name lookup
+        assert subABC["NAME"] == "Test"  # normalized name lookup
+        assert subABC["__name__"] == "Test"  # normalized name lookup
+
+    def test_mapping_error(self) -> None:
+        """Test mapping lookup errors."""
+        subABC = SubProfileABC(name="Test")
+        with pytest.raises(KeyError):
+            subABC["game"]  # exact name lookup
+        with pytest.raises(KeyError):
+            subABC["GAME"]  # normalized name lookup
+
+    def test_attribute_error(self) -> None:
+        """Test attribute lookup errors."""
+        subABC = SubProfileABC(name="Test")
+        with pytest.raises(AttributeError):
+            subABC.game  # exact name lookup
+        with pytest.raises(AttributeError):
+            subABC.GAME  # normalized name lookup

@@ -10,11 +10,21 @@ __all__ = ["plot_demo", "profile_demo", "main"]
 
 import sys
 from fractions import Fraction
+from typing import Union
 
 import lea
 from lea.leaf import dice
 
-from bones.warhammer import chain_rolls
+Randomizable = Union[int, lea.Lea]
+
+
+def chain_rolls(n: Randomizable, d: lea.Lea) -> lea.Lea:
+    """Analyze one step in the attack sequence."""
+    # n  number of incoming rolls (as pmf)
+    # d  pmf for this roll
+    nx: lea.Lea = n if isinstance(n, lea.Lea) else lea.vals(n)
+    switch = {nv: d.times(nv) if nv else 0 for nv in nx.support}
+    return nx.switch(switch)
 
 
 def profile_demo() -> None:
