@@ -1,5 +1,6 @@
 """Unit tests for bones.warhammer.Profile class."""
 
+import io
 from dataclasses import dataclass
 
 import pytest
@@ -34,16 +35,7 @@ class TestProfileInheritance:
 
     def test_inherited_attributes(self) -> None:
         """Test attribute initialization in the Profile base class."""
-        prof = Profile()
-        subA = SubProfileA()
-        subB = SubProfileB()
-        subC = SubProfileC()
         subABC = SubProfileABC()
-        assert len(prof) == 1
-        assert len(subA) == 2
-        assert len(subB) == 3
-        assert len(subC) == 1
-        assert len(subABC) == 5
         assert {*subABC} == {"name", "test_a", "test_b1", "test_b2", "test_abc"}
 
 
@@ -52,8 +44,132 @@ class TestProfileInit:
 
     def test_simple(self) -> None:
         """Test with minimal arguments."""
+        prof = Profile()
+        assert prof.name == type(prof).name
+
+    def test_custom_name(self) -> None:
+        """Test constructor with name parameter."""
         prof = Profile("Test")
         assert prof.name == "Test"
+
+
+class TestProfileLoad:
+    """Test the Profile load constructors: loadmap, loadf, loads."""
+
+    def test_loadmap_trivial(self) -> None:
+        """Test Profile.loadmap with an empty mapping."""
+        profiles = Profile.loadmap({})
+        assert profiles == {}
+
+    def test_loadmap_simple(self) -> None:
+        """Test Profile.loadmap with just a name."""
+        profiles = Profile.loadmap({"Test Profile": {}})
+        assert len(profiles) == 1
+        prof = profiles["Test Profile"]
+        assert prof.name == "Test Profile"
+
+    def test_loadmap_attr(self) -> None:
+        """Test Profile.loadmap with a profile set."""
+        profiles = Profile.loadmap({"Test Profile": {"name": "Test"}})
+        assert len(profiles) == 1
+        prof = profiles["Test Profile"]
+        assert prof.name == "Test"
+
+    def test_loadmap_multiple(self) -> None:
+        """Test Profile.loadmap with multiple profiles."""
+        profiles = Profile.loadmap(
+            {
+                "Test 1": {},
+                "Test 2": {"name": "Test Two"},
+                "Test 3": dict(name="Test Three"),
+            }
+        )
+        assert len(profiles) == 3
+        assert profiles["Test 1"].name == "Test 1"
+        assert profiles["Test 2"].name == "Test Two"
+        assert profiles["Test 3"].name == "Test Three"
+
+    def test_loadmap_field_errors(self) -> None:
+        """Test Profile.loadmap with duplicate names."""
+        # Unknown field name.
+        with pytest.raises(ValueError) as ex:
+            Profile.loadmap({"Test": {"name": "Test", "game": "Test"}})
+        assert ex.type == ValueError
+        assert ex.value.args == ("unknown field 'game' in 'Test' Profile",)
+        # Unknown non-normalized field name.
+        with pytest.raises(ValueError) as ex:
+            Profile.loadmap({"Test": {"NAME": "Test", "GAME": "Test"}})
+        assert ex.type == ValueError
+        assert ex.value.args == (
+            "unknown field 'GAME' (normalized 'game') in 'Test' Profile",
+        )
+        # Duplicate normalized field name.
+        with pytest.raises(ValueError) as ex:
+            Profile.loadmap({"Test": {"NAME": "Test", "name": "Test"}})
+        assert ex.type == ValueError
+        assert ex.value.args == ("duplicate field 'name' in 'Test' Profile",)
+        # Duplicate non-normalized field name.
+        with pytest.raises(ValueError) as ex:
+            Profile.loadmap({"Test": {"Name": "Test", "NAME": "Test"}})
+        assert ex.type == ValueError
+        assert ex.value.args == (
+            "duplicate field 'NAME' (normalized 'name') in 'Test' Profile",
+        )
+
+    TOML = """
+    [Test]
+    name = "Test 1"
+
+    ["Test 2"]
+
+    [test3]
+    name = 3.0
+    """
+
+    def test_loads(self) -> None:
+        """Test Profile.loads method."""
+        profiles = Profile.loads(self.TOML)
+        assert len(profiles) == 3
+        assert profiles["Test"].name == "Test 1"
+        assert profiles["Test 2"].name == "Test 2"
+        assert profiles["test3"].name == "3.0"  # convert from float
+
+    def test_loadf(self) -> None:
+        """Test Profile.loads method."""
+        bf = io.BytesIO(bytes(self.TOML, "utf-8"))
+        profiles = Profile.loadf(bf)
+        assert len(profiles) == 3
+        assert profiles["Test"].name == "Test 1"
+        assert profiles["Test 2"].name == "Test 2"
+        assert profiles["test3"].name == "3.0"  # convert from float
+
+
+class TestProfileFields:
+    """Test the Profile.fields method."""
+
+    def test_simple(self) -> None:
+        """Test with the base Profile class."""
+        prof = Profile()
+        fmap = prof.fields()
+        # Instance and class should produce the same fields.
+        assert fmap == Profile.fields()  # by value
+        assert fmap is Profile.fields()  # by cache
+        # Check field contents.
+        assert len(fmap) == 1
+        fname = fmap["name"]
+        assert fname.name == "name"
+        assert fname.type == str
+
+    def test_inherited_fields(self) -> None:
+        """Test attribute initialization in the Profile base class."""
+        subABC = SubProfileABC()
+        fmap = subABC.fields()
+        # Instance and class should produce the same fields.
+        assert fmap == SubProfileABC.fields()  # by value
+        assert fmap is SubProfileABC.fields()  # by cache
+        # Check field contents.
+        assert len(fmap) == 5
+        assert {*fmap} == {"name", "test_a", "test_b1", "test_b2", "test_abc"}
 
 
 class TestProfileNormalize:

@@ -17,20 +17,13 @@ __all__ = (
 import builtins
 import functools
 import keyword
-import sys
+import tomllib
 import unicodedata
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, Field, fields
 from typing import Any, BinaryIO, Optional, Self, Union
 
 import lea
-
-# Conditionally import tomllib (Python 3.11+) or tomli.
-# (mypy doesn't understand the try/except idiom)
-if sys.version_info[:2] < (3, 11):
-    import tomli as tomllib
-else:
-    import tomllib
 
 # Type definitions.
 # TODO: Remove any unused definitions.
@@ -44,7 +37,6 @@ lea.set_prob_type("r")
 class AttackCounter:
     """Results counter for each step of the attack sequence."""
 
-    # TODO: addition operator?
     attacks: int
     wounds: int = 0
     mortals: int = 0
@@ -67,8 +59,41 @@ class Profile(NameMapping):
     @classmethod
     def loadmap(cls, __map: NameMapping, /) -> Mapping[str, Self]:
         """Construct a new Profile object from a mapping."""
-        # TODO
-        return {}
+        profiles: dict[str, Self] = {}
+        cname = cls.__name__
+        fmap = cls.fields()
+
+        # Each value in __map should also be a NameMapping.
+        pname: str
+        pdata: NameMapping
+        for pname, pdata in __map.items():
+            pmap: dict[str, Any] = {}
+            fname: str
+
+            # Collect the profile fields.
+            for fname, fdata in pdata.items():
+                attr = cls.normalize(fname)
+                if attr not in fmap or attr in pmap:
+                    # Bad field name.  Either there's no matching field,
+                    # or two names normalized onto the same attribute.
+                    problem = "duplicate" if attr in fmap else "unknown"
+                    falias = repr(fname)
+                    if attr != fname:
+                        falias += f" (normalized {attr!r})"
+                    error = f"{problem} field {falias} in {pname!r} {cname}"
+                    raise ValueError(error)
+                # Convert the field data to the field type.
+                ftype = fmap[attr].type
+                pmap[attr] = ftype(fdata)
+
+            # Set the profile name if there wasn't a name field given.
+            if "name" not in pmap:
+                pmap["name"] = pname
+            # Add the profile to the output.
+            profile = cls(**pmap)
+            profiles[pname] = profile
+
+        return profiles
 
     @classmethod
     def loadf(
@@ -157,6 +182,12 @@ class Profile(NameMapping):
 
         return norm
 
+    @classmethod
+    @functools.cache
+    def fields(cls) -> dict[str, Field[Any]]:
+        """Index the class fields by name."""
+        return {f.name: f for f in fields(cls)}
+
     def __getattr__(self, __name: str) -> Any:
         """Look up an attribute by name, with normalization.
 
@@ -171,8 +202,6 @@ class Profile(NameMapping):
             if name != __name:
                 names += f"or {__name!r}"
             error = f"{type(self).__name__!r} object has no {names}"
-            if sys.version_info[:2] < (3, 10):
-                raise AttributeError(error) from None
             raise AttributeError(error, name=name, obj=self) from None
 
     def __getitem__(self, __key: str) -> Any:
