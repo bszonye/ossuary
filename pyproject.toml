@@ -20,7 +20,8 @@ bones = "bones.__main__:main"
 
 [tool.poetry.dependencies]
 # python  required for
-# ^3.11   typing.Self
+# ^3.11   tomllib, typing.Self
+# ^3.10   keyword.issoftkeyword
 # ^3.8.1  flake8 = ^6.0.0
 # ^3.8    positional-only parameters
 python = "^3.11"

@@ -1,10 +1,10 @@
 """bones.warhammer: dice analysis for Warhammer games."""
 
+# TODO: Here for reference. Remove if possible.
 # from __future__ import annotations
 
 __all__ = (
     "AttackCounter",
-    "Attribute",
     "Datasheet",
     "Profile",
     "Unit",
@@ -15,14 +15,13 @@ __all__ = (
 )
 
 import builtins
+import functools
 import keyword
 import sys
 import unicodedata
-from abc import ABCMeta
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
-from functools import cache
-from typing import Any, BinaryIO, ClassVar, Optional, Self, SupportsFloat, Union
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass, fields
+from typing import Any, BinaryIO, Optional, Self, Union
 
 import lea
 
@@ -34,12 +33,9 @@ else:
     import tomllib
 
 # Type definitions.
-Numeric = SupportsFloat  # reasonable approximation of "numeric"
-AttributeFactory = Union[type[Any], Callable[..., Any]]
-NameDict = dict[str, Any]
+# TODO: Remove any unused definitions.
 NameMapping = Mapping[str, Any]
-NamePairs = Iterable[tuple[str, Any]]
-Randomizable = Union[Numeric, lea.Lea]  # TODO: remove
+Randomizable = Union[int, lea.Lea]
 
 lea.set_prob_type("r")
 
@@ -55,15 +51,43 @@ class AttackCounter:
     kills: int = 0
 
 
-@dataclass(frozen=True, order=True)
-class Attribute:
-    """Descriptor for profile attributes."""
+@dataclass
+class Profile(NameMapping):
+    """Tabular data for units and weapons.
 
-    name: str  # human display name
-    factory: AttributeFactory = field(default=str, compare=False)
+    Most Warhammer stats are **characteristics** organized into tables
+    with a named **profile** in each row and the characteristic values
+    in columns.  This base class represents basic profile data with
+    subscript notation for accessing the characteristics by name.
+
+    """
+
+    name: str = "Untitled"
+
+    @classmethod
+    def loadmap(cls, __map: NameMapping, /) -> Mapping[str, Self]:
+        """Construct a new Profile object from a mapping."""
+        # TODO
+        return {}
+
+    @classmethod
+    def loadf(
+        cls, __fp: BinaryIO, /, *args: Any, **kwargs: Any
+    ) -> Mapping[str, Self]:
+        """Construct a new Profile object from a TOML file."""
+        # TODO: test this
+        data = tomllib.load(__fp)
+        return cls.loadmap(data)
+
+    @classmethod
+    def loads(cls, __s: str, /, *args: Any, **kwargs: Any) -> Mapping[str, Self]:
+        """Construct a new Profile object from a TOML string."""
+        # TODO: test this
+        data = tomllib.loads(__s)
+        return cls.loadmap(data)
 
     @staticmethod
-    @cache
+    @functools.cache
     def normalize(
         __s: str, /, *, connector: str = "_", python: Optional[bool] = None
     ) -> str:
@@ -124,136 +148,47 @@ class Attribute:
 
         # Guard against collisions with builtins and keywords.  Adds an
         # underscore suffix as recommended by PEP 8.
-        if norm in builtins.__dict__ or keyword.iskeyword(norm):
+        if (
+            norm in builtins.__dict__
+            or keyword.iskeyword(norm)
+            or keyword.issoftkeyword(norm)
+        ):
             norm += "_"
 
         return norm
 
-    def python(self) -> str:
-        """Return the attribute's normalized Python identifier."""
-        return self.normalize(self.name)
-
-    def toml(self) -> str:
-        """Return the attribute's normalized TOML key."""
-        return self.normalize(self.name, connector="-")
-
-    def __repr__(self) -> str:
-        """Dump attribute in repr() format."""
-        args = [repr(self.name)]
-        if self.factory != str:
-            args.append(self.factory.__name__)
-        # Join the result.
-        return f"{type(self).__name__}({', '.join(args)})"
-
-
-class ProfileMeta(ABCMeta):
-    """Metaclass to manage profile attributes."""
-
-    ATTRIBUTES: frozenset[Attribute]
-    CLASS_ATTRIBUTES: Sequence[Attribute]
-
-    def __new__(
-        cls,
-        name: str,
-        bases: tuple[type[Any], ...],
-        namespace: NameDict,
-    ) -> "ProfileMeta":
-        return super().__new__(cls, name, bases, namespace)
-
-    def __init__(cls, *args: Any, **kwargs: Any) -> None:  # noqa: B902
-        """Initialize ATTRIBUTES for each Profile class."""
-        super().__init__(*args, **kwargs)
-        attrs: set[Attribute] = set()
-        for c in cls.__mro__:
-            attrs |= set(getattr(c, "CLASS_ATTRIBUTES", ()))
-        cls.ATTRIBUTES = frozenset(attrs)
-
-
-class Profile(NameMapping, metaclass=ProfileMeta):
-    """Tabular data for units and weapons.
-
-    Most Warhammer stats are **characteristics** organized into tables
-    with a named **profile** in each row and the characteristic values
-    in columns.  This base class represents basic profile data with
-    subscript notation for accessing the characteristics by name.
-
-    """
-
-    # MERGED ATTRIBUTES:
-    # The public class variable is specialized for each Profile subclass
-    # to contain the union of all its class attributes with all of the
-    # superclass attributes.  (Automatically set up by the metaclass.)
-    ATTRIBUTES: ClassVar[frozenset[Attribute]]
-
-    # Default attributes for this class.
-    CLASS_ATTRIBUTES = frozenset({Attribute("Name")})
-    name: str
-
-    def __init__(self, __c: Union[NameMapping, NamePairs]):
-        """Initialize characteristics."""
-        # Convert input data to attributes.
-        factories = {a.python(): a.factory for a in self.ATTRIBUTES}
-        mapping = __c if isinstance(__c, Mapping) else dict(__c)
-        for k, v in mapping.items():
-            # TODO: Error handling / better error messages.
-            attribute = Attribute.normalize(k)
-            factory = factories[attribute]
-            value = factory(v)
-            setattr(self, attribute, value)
-
-    @classmethod
-    def load(cls, __fp: BinaryIO, /, *args: Any, **kwargs: Any) -> Self:
-        """Construct a new Profile object from a TOML file."""
-        # TODO: test this
-        data = tomllib.load(__fp)
-        return cls(data, *args, **kwargs)
-
-    @classmethod
-    def loads(cls, __s: str, /, *args: Any, **kwargs: Any) -> Self:
-        """Construct a new Profile object from a TOML string."""
-        # TODO: test this
-        data = tomllib.loads(__s)
-        return cls(data, *args, **kwargs)
-
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, __name: str) -> Any:
         """Look up an attribute by name, with normalization.
 
         Uses Attribute.normalize to convert a human-readable attribute
         name or TOML key to an equivalent Python attribute identifier.
         """
-        norm = Attribute.normalize(name)
+        name = self.normalize(__name)
         try:
-            return self.__dict__[norm]
+            return self.__dict__[name]
         except KeyError:
-            names = f"attribute {norm!r}"
-            if norm != name:
-                names += f"or {name!r}"
+            names = f"attribute {name!r}"
+            if name != __name:
+                names += f"or {__name!r}"
             error = f"{type(self).__name__!r} object has no {names}"
             if sys.version_info[:2] < (3, 10):
                 raise AttributeError(error) from None
-            raise AttributeError(error, name=norm, obj=self) from None
+            raise AttributeError(error, name=name, obj=self) from None
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, __key: str) -> Any:
         """Subscript notation to simplify profile attribute access."""
         try:
-            return getattr(self, key)
+            return getattr(self, __key)
         except AttributeError as ex:
             raise KeyError(*ex.args) from None
 
     def __iter__(self) -> Iterator[str]:
         """Iterate over the names of all profile attributes."""
-        # TODO: test this
-        return iter(a.python() for a in self.ATTRIBUTES)
+        return iter(f.name for f in fields(self))
 
     def __len__(self) -> int:
         """Report the number of profile attributes."""
-        # TODO: test this
-        return len(self.ATTRIBUTES)
-
-    def __repr__(self) -> str:
-        """Dump object data in repr() format."""
-        args = [f"{dict(self.items())!r}"]
-        return f"{type(self).__name__}({', '.join(args)})"
+        return len(fields(self))
 
 
 class Weapon(Profile):
