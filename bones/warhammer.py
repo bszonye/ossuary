@@ -5,8 +5,15 @@
 
 __all__ = (
     "AttackCounter",
+    "AttackPMF",
+    "AttackSingle",
+    "Characteristic",
+    "ConditionalModifier",
     "Datasheet",
+    "Modifier",
+    "NumericValue",
     "Profile",
+    "RandomValue",
     "Unit",
     "UnitProfile",
     "Warscroll",
@@ -18,9 +25,10 @@ import functools
 import keyword
 import tomllib
 import unicodedata
-from collections.abc import Iterator, Mapping
+from abc import abstractmethod
+from collections.abc import Collection, Iterator, Mapping
 from dataclasses import dataclass, Field, fields
-from typing import Any, BinaryIO, Optional, Self
+from typing import Any, BinaryIO, Optional, Self, Union
 
 import lea
 
@@ -28,6 +36,32 @@ import lea
 NameMapping = Mapping[str, Any]
 
 lea.set_prob_type("r")
+
+
+class Characteristic:
+    """A profile characteristic."""
+
+
+class NumericValue(Characteristic):
+    """A characteristic with a numeric value."""
+
+    pmf: lea.Lea
+
+
+class RandomValue(NumericValue):
+    """A numeric value determined by die roll (e.g. attacks, damage)."""
+
+
+class Modifier(NumericValue):
+    """A numeric value that modifies other characteristics."""
+
+
+class ConditionalModifier(Modifier):
+    """A modifier only applied in certain circumstances."""
+
+
+class TargetNumber(Characteristic):
+    """A target number for dice rolls (e.g. weapon skill, to wound)."""
 
 
 @dataclass(frozen=True)
@@ -38,6 +72,38 @@ class AttackCounter:
     wounds: int = 0
     mortals: int = 0
     kills: int = 0
+
+
+@dataclass(frozen=True)
+class AttackPMF:
+    """Probability mass function for attack results."""
+
+    pmf: lea.Lea
+
+    def __init__(self, __pmf: Union[lea.Lea, AttackCounter, int] = 1) -> None:
+        """Initialize PMF object."""
+        pmf: lea.Lea
+        match __pmf:
+            case int():
+                pmf = lea.vals(AttackCounter(__pmf))
+            case AttackCounter():
+                pmf = lea.vals(__pmf)
+            case lea.Lea():
+                for v in __pmf.support:
+                    if not isinstance(v, AttackCounter):
+                        raise TypeError(
+                            f"{type(v).__name__!r} object is not an AttackCounter"
+                        )
+                pmf = __pmf
+            case _:
+                raise TypeError(
+                    f"{type(__pmf).__name__!r} object is not an AttackCounter"
+                )
+
+        object.__setattr__(self, "pmf", pmf)
+
+
+AttackSingle = AttackPMF()
 
 
 @dataclass
@@ -54,7 +120,7 @@ class Profile(NameMapping):
     name: str = "Untitled"
 
     @classmethod
-    def loadmap(cls, __map: NameMapping, /) -> Mapping[str, Self]:
+    def loadmap(cls, __map: NameMapping, /, **defaults: Any) -> Mapping[str, Self]:
         """Construct a new Profile object from a mapping."""
         profiles: dict[str, Self] = {}
         cname = cls.__name__
@@ -83,7 +149,10 @@ class Profile(NameMapping):
                 ftype = fmap[attr].type
                 pmap[attr] = ftype(fdata)
 
-            # Set the profile name if there wasn't a name field given.
+            # Set any defaults not given, including profile name.
+            for attr, value in defaults.items():
+                if attr not in pmap:
+                    pmap[attr] = value
             if "name" not in pmap:
                 pmap["name"] = pname
             # Add the profile to the output.
@@ -93,20 +162,18 @@ class Profile(NameMapping):
         return profiles
 
     @classmethod
-    def loadf(
-        cls, __fp: BinaryIO, /, *args: Any, **kwargs: Any
-    ) -> Mapping[str, Self]:
+    def loadf(cls, __fp: BinaryIO, /, **defaults: Any) -> Mapping[str, Self]:
         """Construct a new Profile object from a TOML file."""
         # TODO: test this
         data = tomllib.load(__fp)
-        return cls.loadmap(data)
+        return cls.loadmap(data, **defaults)
 
     @classmethod
-    def loads(cls, __s: str, /, *args: Any, **kwargs: Any) -> Mapping[str, Self]:
+    def loads(cls, __s: str, /, **defaults: Any) -> Mapping[str, Self]:
         """Construct a new Profile object from a TOML string."""
         # TODO: test this
         data = tomllib.loads(__s)
-        return cls.loadmap(data)
+        return cls.loadmap(data, **defaults)
 
     @staticmethod
     @functools.cache
@@ -217,16 +284,53 @@ class Profile(NameMapping):
         return len(fields(self))
 
 
-class Weapon(Profile):
-    """Weapon profile."""
-
-
 class UnitProfile(Profile):
     """Shared behavior for Warscroll and Datasheet objects."""
 
 
+class AttackSequence:
+    """Organizes all elements of an attack sequence."""
+
+    attacker: UnitProfile
+    target: UnitProfile
+    distance: NumericValue
+    modifiers: Collection[Modifier]
+
+
+class Weapon(Profile):
+    """Weapon profile."""
+
+    range_: NumericValue
+    type_: str  # Melee, Missile, Assault, Heavy, Rapid Fire, Grenade, Pistol
+    attacks: NumericValue  # can also be a RandomValue
+    damage: NumericValue  # can also be a RandomValue
+
+    @abstractmethod
+    def hit_roll(
+        self, attack: AttackSequence, pmf: AttackPMF = AttackSingle
+    ) -> AttackPMF:
+        """Resolve the Hit Roll step of the attack sequence."""
+        # TODO: Implement common behavior here?
+        ...
+
+
+class WarscrollWeapon(Weapon):
+    """Weapon profile for Warhammer Age of Sigmar warscrolls."""
+
+    to_hit: TargetNumber
+    to_wound: TargetNumber
+    rend: Modifier
+
+
 class Warscroll(UnitProfile):
     """Unit characteristics & abilities for Warhammer Age of Sigmar."""
+
+
+class DatasheetWeapon(Weapon):
+    """Weapon profile for Warhammer 40,000 datasheets."""
+
+    strength: NumericValue  # can also be a Modifier
+    ap: Modifier
 
 
 class Datasheet(UnitProfile):

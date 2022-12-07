@@ -36,11 +36,11 @@ def plot_demo() -> None:
     try:
         import matplotlib
         from matplotlib import pyplot
-    except ImportError:
+    except ImportError:  # pragma: no cover
         return
 
     # attacks
-    attacks: lea.Alea = dice(1)
+    attacks: lea.Lea = dice(1)
     # hit: 4+ exploding 6s
     hit = (0, Fraction(3, 6)), (1, Fraction(2, 6)), (2, Fraction(1, 6))
     # wound: 4+, TODO: 1 MW instead on 6
@@ -63,12 +63,14 @@ def plot_demo() -> None:
     pyplot.bar(range(len(domain)), ratio, tick_label=domain, align="center")
     pyplot.ylabel("Probability")
     pyplot.title("Hits")
-    pyplot.show(block=True)
+    if sys.__stdout__.isatty():  # pragma: no cover
+        pyplot.show(block=True)
 
     # demo with lea.plot()
     hits.plot(title="Wounds", color="red")
     print("interactive:", pyplot.isinteractive())
-    pyplot.show(block=True)
+    if sys.__stdout__.isatty():  # pragma: no cover
+        pyplot.show(block=True)
     print(matplotlib.backends.backend)
 
 
@@ -77,8 +79,8 @@ def main() -> None:
     print(__name__)
     profile_demo()
     plot_demo()
-    sys.exit(0)
 
 
 if __name__ == "__main__":
     main()
+    sys.exit(0)

@@ -1,7 +1,7 @@
 """Unit tests for bones.warhammer.Profile class."""
 
 import io
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import pytest
 
@@ -89,29 +89,62 @@ class TestProfileLoad:
         assert profiles["Test 2"].name == "Test Two"
         assert profiles["Test 3"].name == "Test Three"
 
+    def test_loadmap_defaults(self) -> None:
+        """Test Profile.loadmap with default values."""
+        profiles = SubProfileABC.loadmap(
+            {
+                "Test 1": {"test_a": 1},
+                "Test 2": {"name": "Test Two", "test_b1": "baz"},
+                "Test 3": dict(name="Test Three", test_abc=1.0),
+            },
+            name="NAME",
+            test_a=42,
+            test_b1="FOO",
+            test_b2="BAR",
+            test_abc=4.2,
+        )
+        assert len(profiles) == 3
+        assert asdict(profiles["Test 1"]) == dict(
+            name="NAME",
+            test_a=1,
+            test_b1="FOO",
+            test_b2="BAR",
+            test_abc=4.2,
+        )
+        assert asdict(profiles["Test 2"]) == dict(
+            name="Test Two",
+            test_a=42,
+            test_b1="baz",
+            test_b2="BAR",
+            test_abc=4.2,
+        )
+        assert asdict(profiles["Test 3"]) == dict(
+            name="Test Three",
+            test_a=42,
+            test_b1="FOO",
+            test_b2="BAR",
+            test_abc=1.0,
+        )
+
     def test_loadmap_field_errors(self) -> None:
         """Test Profile.loadmap with duplicate names."""
         # Unknown field name.
         with pytest.raises(ValueError) as ex:
             Profile.loadmap({"Test": {"name": "Test", "game": "Test"}})
-        assert ex.type == ValueError
         assert ex.value.args == ("unknown field 'game' in 'Test' Profile",)
         # Unknown non-normalized field name.
         with pytest.raises(ValueError) as ex:
             Profile.loadmap({"Test": {"NAME": "Test", "GAME": "Test"}})
-        assert ex.type == ValueError
         assert ex.value.args == (
             "unknown field 'GAME' (normalized 'game') in 'Test' Profile",
         )
         # Duplicate normalized field name.
         with pytest.raises(ValueError) as ex:
             Profile.loadmap({"Test": {"NAME": "Test", "name": "Test"}})
-        assert ex.type == ValueError
         assert ex.value.args == ("duplicate field 'name' in 'Test' Profile",)
         # Duplicate non-normalized field name.
         with pytest.raises(ValueError) as ex:
             Profile.loadmap({"Test": {"Name": "Test", "NAME": "Test"}})
-        assert ex.type == ValueError
         assert ex.value.args == (
             "duplicate field 'NAME' (normalized 'name') in 'Test' Profile",
         )
