@@ -6,7 +6,6 @@
 __all__ = (
     "AttackCounter",
     "AttackPMF",
-    "AttackSingle",
     "Characteristic",
     "ConditionalModifier",
     "Datasheet",
@@ -14,6 +13,8 @@ __all__ = (
     "NumericValue",
     "Profile",
     "RandomValue",
+    "RandomizableValue",
+    "TargetNumber",
     "Unit",
     "UnitProfile",
     "Warscroll",
@@ -25,15 +26,17 @@ import functools
 import keyword
 import tomllib
 import unicodedata
-from abc import abstractmethod
 from collections.abc import Collection, Iterator, Mapping
-from dataclasses import dataclass, Field, fields
-from typing import Any, BinaryIO, Optional, Self, Union
+from dataclasses import dataclass, Field, fields, InitVar
+from typing import Any, BinaryIO, Optional, overload, Self, Union
 
 import lea
 
 # Type definitions.
 NameMapping = Mapping[str, Any]
+RandomSpec = Union[str, lea.Lea]  # e.g. "1d6" or lea.leaf.D6
+NumericSpec = Union[int, float]
+ValueSpec = Union[NumericSpec, RandomSpec]
 
 lea.set_prob_type("r")
 
@@ -42,26 +45,63 @@ class Characteristic:
     """A profile characteristic."""
 
 
-class NumericValue(Characteristic):
-    """A characteristic with a numeric value."""
+class RandomizableValue(Characteristic):
+    """A numeric characteristic that is sometimes randomized.
 
-    pmf: lea.Lea
+    This includes characteristics like Attacks and Damage, which are
+    usually simple integers but sometimes random values like 1d3 or 1d6.
+    """
+
+    @overload
+    @classmethod
+    def factory(cls, __value: NumericSpec, /) -> "NumericValue":
+        ...
+
+    @overload
+    @classmethod
+    def factory(cls, __value: RandomSpec, /) -> "RandomValue":
+        ...
+
+    @classmethod
+    def factory(cls, __value: ValueSpec, /) -> "RandomizableValue":
+        """Create an appropriate instance from the value given."""
+        match __value:
+            case int():
+                return NumericValue(__value)
+            case float():
+                return NumericValue(__value)
+            case str():
+                return RandomValue(__value)
+            case lea.Lea():
+                return RandomValue(__value)
+            case _:
+                raise TypeError
 
 
-class RandomValue(NumericValue):
-    """A numeric value determined by die roll (e.g. attacks, damage)."""
+class NumericValue(RandomizableValue):  # TODO: subclass float or Fraction?
+    """A characteristic with a rational numeric value."""
+
+    def __init__(self, __value: NumericSpec = float("nan"), /) -> None:
+        """TODO."""
 
 
-class Modifier(NumericValue):
+class RandomValue(RandomizableValue):  # TODO: subclass lea.Alea?
+    """A characteristic determined by die roll."""
+
+    def __init__(self, __value: RandomSpec, /) -> None:
+        """TODO."""
+
+
+class TargetNumber(NumericValue):
+    """A target number for dice rolls (e.g. weapon skill, to wound)."""
+
+
+class Modifier(Characteristic):
     """A numeric value that modifies other characteristics."""
 
 
 class ConditionalModifier(Modifier):
     """A modifier only applied in certain circumstances."""
-
-
-class TargetNumber(Characteristic):
-    """A target number for dice rolls (e.g. weapon skill, to wound)."""
 
 
 @dataclass(frozen=True)
@@ -74,36 +114,34 @@ class AttackCounter:
     kills: int = 0
 
 
-@dataclass(frozen=True)
-class AttackPMF:
+class AttackPMF(lea.Alea):
     """Probability mass function for attack results."""
-
-    pmf: lea.Lea
 
     def __init__(self, __pmf: Union[lea.Lea, AttackCounter, int] = 1) -> None:
         """Initialize PMF object."""
-        pmf: lea.Lea
+        vs: tuple[AttackCounter]
+        ps: tuple[Any]
         match __pmf:
             case int():
-                pmf = lea.vals(AttackCounter(__pmf))
+                vs = (AttackCounter(__pmf),)
+                ps = (1,)
             case AttackCounter():
-                pmf = lea.vals(__pmf)
+                vs = (__pmf,)
+                ps = (1,)
             case lea.Lea():
-                for v in __pmf.support:
-                    if not isinstance(v, AttackCounter):
-                        raise TypeError(
-                            f"{type(v).__name__!r} object is not an AttackCounter"
-                        )
-                pmf = __pmf
+                vs = __pmf.support
+                ps = __pmf.ps
             case _:
                 raise TypeError(
                     f"{type(__pmf).__name__!r} object is not an AttackCounter"
                 )
 
-        object.__setattr__(self, "pmf", pmf)
-
-
-AttackSingle = AttackPMF()
+        for v in vs:
+            if not isinstance(v, AttackCounter):
+                raise TypeError(
+                    f"{type(v).__name__!r} object is not an AttackCounter"
+                )
+        super().__init__(vs, ps, prob_type="r")
 
 
 @dataclass
@@ -147,7 +185,8 @@ class Profile(NameMapping):
                     raise ValueError(error)
                 # Convert the field data to the field type.
                 ftype = fmap[attr].type
-                pmap[attr] = ftype(fdata)
+                factory = getattr(ftype, "factory", ftype)
+                pmap[attr] = factory(fdata)
 
             # Set any defaults not given, including profile name.
             for attr, value in defaults.items():
@@ -302,24 +341,41 @@ class Weapon(Profile):
 
     range_: NumericValue
     type_: str  # Melee, Missile, Assault, Heavy, Rapid Fire, Grenade, Pistol
-    attacks: NumericValue  # can also be a RandomValue
-    damage: NumericValue  # can also be a RandomValue
+    attacks: RandomizableValue = NumericValue()
+    skill: TargetNumber = TargetNumber()
+    strength: Modifier = Modifier()
+    save_modifier: Modifier = Modifier()
+    damage: RandomizableValue = NumericValue(1)
 
-    @abstractmethod
-    def hit_roll(
-        self, attack: AttackSequence, pmf: AttackPMF = AttackSingle
-    ) -> AttackPMF:
+    def hit_roll(self, attack: AttackSequence, pmf: AttackPMF) -> AttackPMF:
         """Resolve the Hit Roll step of the attack sequence."""
-        # TODO: Implement common behavior here?
-        ...
+        # TODO
+        return pmf
+
+    def wound_roll(self, attack: AttackSequence, pmf: AttackPMF) -> AttackPMF:
+        """Resolve the Hit Roll step of the attack sequence."""
+        # TODO
+        return pmf
+
+    def save_roll(self, attack: AttackSequence, pmf: AttackPMF) -> AttackPMF:
+        """Resolve the Hit Roll step of the attack sequence."""
+        # TODO
+        return pmf
+
+    def damage_roll(self, attack: AttackSequence, pmf: AttackPMF) -> AttackPMF:
+        """Resolve the Hit Roll step of the attack sequence."""
+        # TODO
+        return pmf
 
 
 class WarscrollWeapon(Weapon):
     """Weapon profile for Warhammer Age of Sigmar warscrolls."""
 
-    to_hit: TargetNumber
-    to_wound: TargetNumber
-    rend: Modifier
+    to_hit: InitVar[TargetNumber]
+    to_wound: InitVar[TargetNumber]
+    rend: InitVar[Modifier]
+
+    # TODO: __post_init__ and __repr__
 
 
 class Warscroll(UnitProfile):
@@ -329,8 +385,9 @@ class Warscroll(UnitProfile):
 class DatasheetWeapon(Weapon):
     """Weapon profile for Warhammer 40,000 datasheets."""
 
-    strength: NumericValue  # can also be a Modifier
-    ap: Modifier
+    ap: InitVar[Modifier]
+
+    # TODO: __post_init__ and __repr__
 
 
 class Datasheet(UnitProfile):

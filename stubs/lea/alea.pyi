@@ -1,4 +1,4 @@
-from typing import Any, Iterable, Union
+from typing import Any, Iterable, Sequence, Union
 
 from .lea import Lea
 
@@ -6,9 +6,16 @@ _mapping = Union[dict[Any, Any], Iterable[tuple[Any, Any]]]
 
 class Alea(Lea):
     @staticmethod
-    def pmf(arg: _mapping, prob_type: str = ..., **kwargs: Any) -> Alea: ...
-    @staticmethod
     def set_prob_type(prob_type: str) -> None: ...
+    def __init__(
+        self,
+        vs: Sequence[Any],
+        ps: Sequence[Any],
+        normalization: bool = ...,
+        prob_type: Any = ...,
+    ) -> None: ...
+    @staticmethod
+    def pmf(arg: _mapping, prob_type: str = ..., **kwargs: Any) -> Alea: ...
     @staticmethod
     def vals(*values: Any, **kwargs: Any) -> Alea: ...
     def __getattr__(self, name: str) -> Any: ...  # incomplete
