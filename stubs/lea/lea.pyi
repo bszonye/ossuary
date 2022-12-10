@@ -15,24 +15,24 @@ class Lea:
 # import modules with Lea subclasses
 # these must be placed here to avoid cycles (these import lea module)
 from .alea import Alea
-from .olea import Olea
-from .plea import Plea
-from .clea import Clea
-from .ilea import Ilea
-from .dlea import Dlea
-from .rlea import Rlea
 from .blea import Blea
+from .clea import Clea
+from .dlea import Dlea
+from .evidence_ctx import EvidenceCtx
 from .flea import Flea
 from .flea1 import Flea1
 from .flea2 import Flea2
 from .flea2a import Flea2a
 from .glea import Glea
-from .tlea import Tlea
+from .ilea import Ilea
+from .olea import Olea
+from .plea import Plea
+from .rlea import Rlea
 from .slea import Slea
-from .evidence_ctx import EvidenceCtx
+from .tlea import Tlea
 
 _lea_leaf_classes = (Alea, Olea, Plea)
+
 def P(lea1: Lea) -> Union[float, fractions.Fraction]: ...
 def Pf(lea1: Lea) -> float: ...
-
 def __getattr__(name: str) -> Any: ...  # incomplete
