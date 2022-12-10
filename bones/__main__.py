@@ -17,6 +17,8 @@ from lea.leaf import dice
 
 Randomizable = Union[int, lea.Lea]
 
+lea.set_prob_type("r")
+
 
 def chain_rolls(n: Randomizable, d: lea.Lea) -> lea.Lea:
     """Analyze one step in the attack sequence."""

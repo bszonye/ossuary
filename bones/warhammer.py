@@ -26,19 +26,18 @@ import functools
 import keyword
 import tomllib
 import unicodedata
-from collections.abc import Collection, Iterator, Mapping
+from collections.abc import Collection, Iterable, Iterator, Mapping
 from dataclasses import dataclass, Field, fields, InitVar
 from typing import Any, BinaryIO, Optional, overload, Self, Union
 
-import lea
+from . import pmf
+from .pmf import PMF
 
 # Type definitions.
 NameMapping = Mapping[str, Any]
-RandomSpec = Union[str, lea.Lea]  # e.g. "1d6" or lea.leaf.D6
 NumericSpec = Union[int, float]
+RandomSpec = Union[str, PMF]  # e.g. "1d6" or PMF
 ValueSpec = Union[NumericSpec, RandomSpec]
-
-lea.set_prob_type("r")
 
 
 class Characteristic:
@@ -72,7 +71,7 @@ class RandomizableValue(Characteristic):
                 return NumericValue(__value)
             case str():
                 return RandomValue(__value)
-            case lea.Lea():
+            case PMF():
                 return RandomValue(__value)
             case _:
                 raise TypeError
@@ -114,34 +113,27 @@ class AttackCounter:
     kills: int = 0
 
 
-class AttackPMF(lea.Alea):
+class AttackPMF(PMF):
     """Probability mass function for attack results."""
 
-    def __init__(self, __pmf: Union[lea.Lea, AttackCounter, int] = 1) -> None:
-        """Initialize PMF object."""
-        vs: tuple[AttackCounter]
-        ps: tuple[Any]
-        match __pmf:
-            case int():
-                vs = (AttackCounter(__pmf),)
-                ps = (1,)
-            case AttackCounter():
-                vs = (__pmf,)
-                ps = (1,)
-            case lea.Lea():
-                vs = __pmf.support
-                ps = __pmf.ps
-            case _:
-                raise TypeError(
-                    f"{type(__pmf).__name__!r} object is not an AttackCounter"
-                )
+    _TupleSpec = tuple[AttackCounter, Optional[pmf.Probability]]
+    _IterableSpec = Iterable[Union[AttackCounter, _TupleSpec]]
+    _MappingSpec = Mapping[AttackCounter, Optional[pmf.Probability]]
 
-        for v in vs:
-            if not isinstance(v, AttackCounter):
-                raise TypeError(
-                    f"{type(v).__name__!r} object is not an AttackCounter"
-                )
-        super().__init__(vs, ps, prob_type="r")
+    def __init__(
+        self,
+        __items: Union[Self, _IterableSpec, _MappingSpec] = (),
+        /,
+        denominator: pmf.Probability = 0,
+        normalize: bool = False,
+    ) -> None:
+        """Initialize AttackPMF object."""
+        super().__init__(
+            __items,
+            denominator=denominator,
+            normalize=normalize,
+            value_type=AttackCounter,
+        )
 
 
 @dataclass
@@ -185,7 +177,7 @@ class Profile(NameMapping):
                     raise ValueError(error)
                 # Convert the field data to the field type.
                 ftype = fmap[attr].type
-                factory = getattr(ftype, "factory", ftype)
+                factory = ftype.factory if hasattr(ftype, "factory") else ftype
                 pmap[attr] = factory(fdata)
 
             # Set any defaults not given, including profile name.
