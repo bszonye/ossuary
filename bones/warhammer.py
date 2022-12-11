@@ -1,5 +1,7 @@
 """bones.warhammer: dice analysis for Warhammer games."""
 
+__author__ = "Bradd Szonye <bszonye@gmail.com>"
+
 # TODO: Here for reference. Remove if possible.
 # from __future__ import annotations
 

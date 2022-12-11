@@ -1,5 +1,7 @@
 """bones.pmf: probability mass function type."""
 
+__author__ = "Bradd Szonye <bszonye@gmail.com>"
+
 from collections.abc import Hashable, Iterable, Iterator, Mapping
 from fractions import Fraction
 from types import MappingProxyType

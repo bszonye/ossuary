@@ -1,5 +1,7 @@
 """Unit tests for bones.warhammer.Profile class."""
 
+__author__ = "Bradd Szonye <bszonye@gmail.com>"
+
 import io
 from dataclasses import asdict, dataclass
 

@@ -1,5 +1,7 @@
 """Unit tests for bones.warhammer.AttackPMF class."""
 
+__author__ = "Bradd Szonye <bszonye@gmail.com>"
+
 from fractions import Fraction
 from typing import Any
 

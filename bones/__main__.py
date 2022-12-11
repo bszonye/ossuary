@@ -6,6 +6,8 @@ usage: bones [args...]
 TODO: options, arguments, and usage notes
 """
 
+__author__ = "Bradd Szonye <bszonye@gmail.com>"
+
 __all__ = ["plot_demo", "profile_demo", "main"]
 
 import sys

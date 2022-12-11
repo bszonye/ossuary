@@ -1,5 +1,7 @@
 """Unit tests for bones.pmf module."""
 
+__author__ = "Bradd Szonye <bszonye@gmail.com>"
+
 from bones.pmf import PMF
 
 
