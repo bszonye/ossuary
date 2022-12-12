@@ -40,7 +40,6 @@ includes = ["bones"]
 
 [tool.pdm.dev-dependencies]
 lint = [
-    # "git+ssh://git@github.com/python/mypy.git",
     "black",
     "flake8",
     "flake8-bugbear",
@@ -48,6 +47,7 @@ lint = [
     "flake8-isort",
     "flake8-pyi",
     "isort",
+    "mypy @ git+https://github.com/python/mypy.git",
     "pip",
     "pre-commit",
     "pydocstyle",
