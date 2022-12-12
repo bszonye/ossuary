@@ -1,4 +1,4 @@
-# bones: dice analysis toolkit
+# bones 🦴 dice analysis toolkit
 <!-- head -->
 
 [![pdm-managed](https://img.shields.io/badge/pdm-managed-blueviolet)](https://pdm.fming.dev)
@@ -10,4 +10,5 @@
 <!-- cut -->
 TODO
 <!-- cut -->
-TODO
+---
+💀 _fin_
