@@ -50,16 +50,24 @@ fallback-version = "0.0.0"
 version-file = "bones/_version.py"
 
 [tool.hatch.envs.default]
+python = "python3.11"
 dependencies = [
     "pytest",
     "pytest-cov",
 ]
 [tool.hatch.envs.default.scripts]
-cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=bones --cov=tests {args}"
+cov = "pytest {args}"
 no-cov = "cov --no-cov {args}"
 
 [[tool.hatch.envs.test.matrix]]
 python = ["311"]
+extras = ["core", "plot", "gtkplot"]
+
+[tool.hatch.envs.test.overrides]
+matrix.extras.features = [
+    { value = "plot", if = ["plot"] },
+    { value = "gtkplot", if = ["gtkplot"] },
+]
 
 [tool.pdm.build]
 includes = ["bones"]
@@ -133,8 +141,8 @@ pythonPlatform = "All"
 [tool.pytest.ini_options]
 addopts = "--cov=bones --cov-report=term-missing:skip-covered --cov-report=html"
 filterwarnings = [
-    # "error",
-    # "ignore::UserWarning",
+    'error',
+    # 'ignore::UserWarning',
     'ignore:DynamicImporter:ImportWarning',
     'ignore:Gtk\.Window\.set_wmclass:DeprecationWarning',
 ]
