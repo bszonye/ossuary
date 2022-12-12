@@ -28,7 +28,7 @@ import functools
 import keyword
 import tomllib
 import unicodedata
-from collections.abc import Collection, Iterable, Iterator, Mapping
+from collections.abc import Collection, Iterator, Mapping
 from dataclasses import dataclass, Field, fields, InitVar
 from typing import Any, BinaryIO, Optional, overload, Self, Union
 
@@ -112,19 +112,30 @@ class AttackCounter:
     attacks: int
     wounds: int = 0
     mortals: int = 0
-    kills: int = 0
+
+    def __post_init__(self) -> None:
+        """Check field types."""
+        for f in fields(self):
+            value = getattr(self, f.name)
+            # This only works for concrete types.  It will need writing
+            # if any fields or subtypes use generic types or unions.
+            if not isinstance(value, f.type):
+                vtype = f.type.__name__
+                vactual = type(value).__name__
+                raise TypeError(f"{f.name!r}: expected {vtype!r}, not {vactual!r}")
 
 
 class AttackPMF(PMF):
     """Probability mass function for attack results."""
 
-    _TupleSpec = tuple[AttackCounter, Optional[pmf.Probability]]
-    _IterableSpec = Iterable[Union[AttackCounter, _TupleSpec]]
-    _MappingSpec = Mapping[AttackCounter, Optional[pmf.Probability]]
+    # Discrete value type specification.
+    ValueT = Union[int, AttackCounter]  # Allowed input types.
+    ValueType = AttackCounter  # Expected value type.
+    ValueInit = AttackCounter  # Conversion function for other types.
 
     def __init__(
         self,
-        __items: Union[Self, _IterableSpec, _MappingSpec] = (),
+        __items: Union[Self, pmf.IterableT[ValueT], pmf.MappingT[ValueT]] = (),
         /,
         denominator: pmf.Probability = 0,
         normalize: bool = False,
@@ -134,7 +145,6 @@ class AttackPMF(PMF):
             __items,
             denominator=denominator,
             normalize=normalize,
-            value_type=AttackCounter,
         )
 
 

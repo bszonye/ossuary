@@ -2,44 +2,48 @@
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
-from collections.abc import Hashable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping
 from fractions import Fraction
 from types import MappingProxyType
-from typing import cast, Optional, Self, Union
+from typing import cast, Optional, Self, TypeVar, Union
 
 Probability = Union[int, Fraction]
 
 # PMF input types.
-_TupleSpec = tuple[Hashable, Optional[Probability]]
-_IterableSpec = Iterable[Union[Hashable, _TupleSpec]]
-_MappingSpec = Mapping[Hashable, Optional[Probability]]
+_DVT = TypeVar("_DVT", bound=Hashable)
+PairT = tuple[_DVT, Optional[Probability]]
+IterableT = Iterable[Union[_DVT, PairT[_DVT]]]
+MappingT = Mapping[_DVT, Optional[Probability]]
 
 
 class PMF(Mapping[Hashable, Probability]):
     """Finite probability mass function."""
 
-    __elements: Mapping[Hashable, Probability]
+    ValueT = Hashable
+    ValueType: type = Hashable
+    ValueInit: Optional[Callable[..., Hashable]] = None
+
+    __pairs: Mapping[Hashable, Probability]
     __total: Probability  # TODO: Is this redundant?
 
     def __init__(
         self,
-        __items: Union[Self, _MappingSpec, _IterableSpec] = (),
+        __items: Union[Self, MappingT[Hashable], IterableT[Hashable]] = (),
         /,
         *,
         denominator: Probability = 0,
         normalize: bool = False,
-        value_type: type = Hashable,
     ) -> None:
         """Initialize PMF object."""
         items: list[tuple[Hashable, Optional[Probability]]] = []
         match __items:
             case PMF():
                 # TODO: Handle denominator and normalize.
-                self.__elements = __items.__elements
+                self.__pairs = __items.__pairs
                 self.__total = __items.__total
                 return
             case Mapping():
-                mapping = cast(_MappingSpec, __items)
+                mapping = cast(MappingT[Hashable], __items)
                 for mv, mp in mapping.items():
                     match mp:
                         case int() | Fraction() | None:
@@ -61,8 +65,8 @@ class PMF(Mapping[Hashable, Probability]):
                             )
             case _:
                 raise TypeError(f"{type(__items).__name__!r}")
-        # Collect elements.
-        elements: dict[Hashable, Probability] = {}
+        # Collect pairs.
+        pairs: dict[Hashable, Probability] = {}
         total: Probability = 0
         remainder: Probability = 0
         remainder_set: set[Hashable] = set()
@@ -77,12 +81,17 @@ class PMF(Mapping[Hashable, Probability]):
                 case _:
                     v = item
                     p = 1
-            if not isinstance(v, value_type):
-                vtype = value_type.__name__
-                vactual = type(v).__name__
-                raise TypeError(f"{vactual!r} object is not {vtype!r}")
-            elements.setdefault(v, 0)
-            elements[v] += p
+            if not isinstance(v, self.ValueType):
+                # Try to convert the value.
+                converter = self.ValueInit
+                if converter is None:
+                    vtype = self.ValueType.__name__
+                    vactual = type(v).__name__
+                    raise TypeError(f"{vactual!r} object is not {vtype!r}")
+                else:
+                    v = converter(v)
+            pairs.setdefault(v, 0)
+            pairs[v] += p
             total += p
         # Determine & distribute remainder, if any.
         if denominator:
@@ -97,19 +106,19 @@ class PMF(Mapping[Hashable, Probability]):
             if shares != 1:
                 remainder = Fraction(remainder, shares)
             for v in remainder_set:
-                elements[v] += remainder
+                pairs[v] += remainder
         # Optionally normalize total probability to 1.
         if normalize and total != 1:
-            elements = {v: Fraction(p, total) for v, p in elements.items()}
+            pairs = {v: Fraction(p, total) for v, p in pairs.items()}
             total = 1
         # Initialize attributes.
-        self.__elements = MappingProxyType(elements)
+        self.__pairs = MappingProxyType(pairs)
         self.__total = total
 
     @property
-    def elements(self) -> Mapping[Hashable, Probability]:
+    def pairs(self) -> Mapping[Hashable, Probability]:
         """Provide read-only access to the probability mapping."""
-        return self.__elements
+        return self.__pairs
 
     @property
     def total(self) -> Probability:
@@ -118,12 +127,12 @@ class PMF(Mapping[Hashable, Probability]):
 
     def __getitem__(self, key: Hashable) -> Probability:
         """Return the probability for a given value."""
-        return self.__elements[key]
+        return self.__pairs[key]
 
     def __iter__(self) -> Iterator[Hashable]:
         """Iterate over the discrete values."""
-        return iter(self.__elements)
+        return iter(self.__pairs)
 
     def __len__(self) -> int:
         """Return the number of discrete values in the mapping."""
-        return len(self.__elements)
+        return len(self.__pairs)
