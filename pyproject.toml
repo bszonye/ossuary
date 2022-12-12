@@ -44,8 +44,8 @@ Documentation = "https://github.com/bszonye/bones"
 [tool.hatch.metadata.hooks.fancy-pypi-readme]
 content-type = "text/markdown"
 fragments = [
-    { path = "README.md", end-before = "<!-- badges -->" },
-    { path = "README.md", start-after = "<!-- go -->",  end-before = "<!-- cut -->" },
+    { path = "README.md", end-before = "<!-- head -->" },
+    { path = "README.md", start-after = "<!-- cut -->",  end-before = "<!-- cut -->" },
 ]
 
 [tool.hatch.build]
