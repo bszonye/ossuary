@@ -1,10 +1,9 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "bones"
-version = "0.0.0"
 description = "dice analysis toolkit"
 authors = [
     {name = "Bradd Szonye", email = "bszonye@gmail.com"},
@@ -12,10 +11,18 @@ authors = [
 readme = "README.md"
 license = {text = "MIT"}
 keywords = ["dice", "probability"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    # "Development Status :: 4 - Beta",
+    # "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+]
 requires-python = ">=3.11.0rc2"
 dependencies = [
     "lea",
 ]
+dynamic = ["version"]
 
 [project.optional-dependencies]
 plot = [
@@ -34,6 +41,25 @@ Homepage = "https://github.com/bszonye/bones"
 Repository = "https://github.com/bszonye/bones"
 Documentation = "https://github.com/bszonye/bones"
 # Changelog = "https://github.com/bszonye/bones/TODO"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "bones/_version.py"
+
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest",
+    "pytest-cov",
+]
+[tool.hatch.envs.default.scripts]
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=bones --cov=tests {args}"
+no-cov = "cov --no-cov {args}"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["311"]
 
 [tool.pdm.build]
 includes = ["bones"]
@@ -64,6 +90,7 @@ line-length = 86
 [tool.coverage.report]
 exclude_lines = [
     'pragma: no cover',
+    'if TYPE_CHECKING:',
     '@overload',
     'if __name__ == .__main__.:',
     'raise NotImplementedError',
@@ -71,6 +98,11 @@ exclude_lines = [
 
 [tool.coverage.run]
 branch = true
+parallel = true
+omit = [
+    "bones/_version.py",
+]
+
 
 [tool.isort]
 profile = "black"
