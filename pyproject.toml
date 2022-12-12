@@ -1,15 +1,14 @@
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling", "hatch-vcs", "hatch-fancy-pypi-readme"]
 build-backend = "hatchling.build"
 
 [project]
 name = "bones"
-dynamic = ["version"]
+dynamic = ["version", "readme"]
 description = "dice analysis toolkit"
 authors = [
     {name = "Bradd Szonye", email = "bszonye@gmail.com"},
 ]
-readme = "README.md"
 license = {text = "MIT"}
 keywords = ["dice", "probability"]
 classifiers = [
@@ -42,12 +41,22 @@ Repository = "https://github.com/bszonye/bones"
 Documentation = "https://github.com/bszonye/bones"
 # Changelog = "https://github.com/bszonye/bones/TODO"
 
-[tool.hatch.version]
-source = "vcs"
-fallback-version = "0.0.0"
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+fragments = [
+    { path = "README.md", end-before = "<!-- badges -->" },
+    { path = "README.md", start-after = "<!-- go -->",  end-before = "<!-- cut -->" },
+]
+
+[tool.hatch.build]
+only-packages = true
 
 [tool.hatch.build.hooks.vcs]
 version-file = "bones/_version.py"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0"
 
 [tool.hatch.envs.default]
 python = "python3.11"
