@@ -194,10 +194,10 @@ summary = "McCabe checker, plugin for flake8"
 
 [[package]]
 name = "mypy"
-version = "1.0.0+dev.b0003aff931c12298fb462aa4cece18610ee4d05"
+version = "1.0.0+dev.42dc1c431ed252de41f96d65367623ebac9e1bb8"
 requires_python = ">=3.7"
 git = "https://github.com/python/mypy.git"
-revision = "b0003aff931c12298fb462aa4cece18610ee4d05"
+revision = "42dc1c431ed252de41f96d65367623ebac9e1bb8"
 summary = "Optional static typing for Python"
 dependencies = [
     "mypy-extensions>=0.4.3",

@@ -4,6 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bones"
+dynamic = ["version"]
 description = "dice analysis toolkit"
 authors = [
     {name = "Bradd Szonye", email = "bszonye@gmail.com"},
@@ -22,7 +23,6 @@ requires-python = ">=3.11.0rc2"
 dependencies = [
     "lea",
 ]
-dynamic = ["version"]
 
 [project.optional-dependencies]
 plot = [
