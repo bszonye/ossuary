@@ -1,62 +1,62 @@
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry]
+[project]
 name = "bones"
 version = "0.0.0"
 description = "dice analysis toolkit"
-authors = ["Bradd Szonye <bszonye@gmail.com>"]
+authors = [
+    {name = "Bradd Szonye", email = "bszonye@gmail.com"},
+]
 readme = "README.md"
-homepage = "https://github.com/bszonye/bones"
-repository = "https://github.com/bszonye/bones"
+license = {text = "MIT"}
 keywords = ["dice", "probability"]
-packages = [
-    { include = "bones" },
+requires-python = ">=3.11.0rc2"
+dependencies = [
+    "lea",
 ]
 
-[tool.poetry.scripts]
-bones = "bones.__main__:main"
-
-[tool.poetry.dependencies]
-# python  required for
-# 3.11    tomllib, typing.Self
-# 3.10    AttributeError.name & .obj, keyword.issoftkeyword
-# 3.8.1   flake8 = ^6.0.0
-# 3.8     positional-only parameters
-
-# TODO: Library code should use >= requirements, but that causes
-# conflicts with the Poetry resolver. Need to switch to something more
-# flexible like pip-tools.
-python = "^3.11"
-lea = ">=3.4.2"
-
-matplotlib = { version = "*", optional = true }
-PyGObject = { version = "*", optional = true }
-
-[tool.poetry.extras]
+[project.optional-dependencies]
 plot = [
     "matplotlib",
+]
+gtkplot = [
+    "bones[plot]",
     "PyGObject",
 ]
 
-[tool.poetry.group.dev.dependencies]
-black = "^22.12.0"
-coverage = "^6.5.0"
-flake8 = "^6.0.0"
-flake8-bugbear = "^22.12.6"
-flake8-docstrings = "^1.6.0"
-flake8-isort = "^5.0.3"
-flake8-pyi = "^22.11.0"
-isort = "^5.10.1"
-# mypy = "^0.991"
-# pip-tools: git+ssh://git@github.com/python/mypy.git
-mypy = {git = "git@github.com:python/mypy.git"}  # supports Self
-pre-commit = "^2.20.0"
-pydocstyle = "^6.1.1"
-pyright = "^1.1.283"
-pytest = "^7.2.0"
-pytest-cov = "^4.0.0"
+[project.scripts]
+bones = "bones.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/bszonye/bones"
+Repository = "https://github.com/bszonye/bones"
+Documentation = "https://github.com/bszonye/bones"
+# Changelog = "https://github.com/bszonye/bones/TODO"
+
+[tool.pdm.build]
+includes = ["bones"]
+
+[tool.pdm.dev-dependencies]
+lint = [
+    # "git+ssh://git@github.com/python/mypy.git",
+    "black",
+    "flake8",
+    "flake8-bugbear",
+    "flake8-docstrings",
+    "flake8-isort",
+    "flake8-pyi",
+    "isort",
+    "pip",
+    "pre-commit",
+    "pydocstyle",
+    "pyright",
+]
+test = [
+    "pytest",
+    "pytest-cov",
+]
 
 [tool.black]
 line-length = 86
