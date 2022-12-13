@@ -84,16 +84,9 @@ includes = ["bones"]
 [tool.pdm.dev-dependencies]
 lint = [
     "black",
-    "flake8",
-    "flake8-bugbear",
-    "flake8-docstrings",
-    "flake8-isort",
-    "flake8-pyi",
-    "isort",
     "mypy @ git+https://github.com/python/mypy.git",
     "pip",
     "pre-commit",
-    "pydocstyle",
     "pyright",
 ]
 test = [
