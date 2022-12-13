@@ -2,8 +2,10 @@
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
-from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping
+import functools
+from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, Sequence
 from fractions import Fraction
+from numbers import Rational
 from types import MappingProxyType
 from typing import cast, Optional, Self, TypeVar, Union
 
@@ -19,7 +21,6 @@ MappingT = Mapping[_DVT, Optional[Probability]]
 class PMF(Mapping[Hashable, Probability]):
     """Finite probability mass function."""
 
-    ValueT = Hashable
     ValueType: type = Hashable
     ValueInit: Optional[Callable[..., Hashable]] = None
 
@@ -116,6 +117,11 @@ class PMF(Mapping[Hashable, Probability]):
         self.__total = total
 
     @property
+    def support(self) -> Sequence[Hashable]:
+        """Return all of the values with nonzero probability."""
+        return tuple(v for v, p in self.__pairs.items() if p)
+
+    @property
     def pairs(self) -> Mapping[Hashable, Probability]:
         """Provide read-only access to the probability mapping."""
         return self.__pairs
@@ -136,3 +142,46 @@ class PMF(Mapping[Hashable, Probability]):
     def __len__(self) -> int:
         """Return the number of discrete values in the mapping."""
         return len(self.__pairs)
+
+
+class DicePMF(PMF):
+    """Probability mass function for dice rolls."""
+
+    # Discrete value type specification.
+    ValueT = Union[int, Fraction]
+    ValueType = Rational  # Expected value type.
+    ValueInit = Fraction  # Conversion function for other types.
+
+    def __init__(
+        self,
+        __items: Union[Self, IterableT[ValueT], MappingT[ValueT]] = (),
+        /,
+        denominator: Probability = 0,
+        normalize: bool = False,
+    ) -> None:
+        """Initialize AttackPMF object."""
+        super().__init__(
+            __items,
+            denominator=denominator,
+            normalize=normalize,
+        )
+
+
+@functools.cache
+def D(__sides: int, /) -> DicePMF:
+    """Create a DicePMF from a given die size."""
+    return DicePMF(range(1, __sides + 1))
+
+
+# Common die sizes.
+D2 = D(2)
+D3 = D(3)
+D4 = D(4)
+D6 = D(6)
+D8 = D(8)
+D10 = D(10)
+D12 = D(12)
+D20 = D(20)
+D30 = D(30)
+D100 = D(100)
+D1000 = D(1000)
