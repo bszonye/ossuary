@@ -28,17 +28,16 @@ import functools
 import keyword
 import tomllib
 import unicodedata
-from collections.abc import Collection, Hashable, Iterator, Mapping, Sequence
+from collections.abc import Collection, Hashable, Iterator, Mapping
 from dataclasses import dataclass, Field, fields, InitVar
-from typing import Any, BinaryIO, cast, Optional, overload, Self, Union
+from typing import Any, BinaryIO, Optional, overload, Self, Union
 
-from . import pmf
-from .pmf import PMF
+from .pmf import DicePMF, PMF
 
 # Type definitions.
 NameMapping = Mapping[str, Any]
 NumericSpec = Union[int, float]
-RandomSpec = Union[str, PMF]  # e.g. "1d6" or PMF
+RandomSpec = Union[str, DicePMF]  # e.g. "1d6" or PMF
 ValueSpec = Union[NumericSpec, RandomSpec]
 
 
@@ -126,28 +125,11 @@ class AttackCounter:
                 raise TypeError(f"{f.name!r}: expected {vtype!r}, not {vactual!r}")
 
 
-class AttackPMF(PMF):
+class AttackPMF(PMF[AttackCounter]):
     """Probability mass function for attack results."""
 
-    # Discrete value type specification.
-    ValueT = Union[int, AttackCounter]  # Allowed input types.
-
-    def __init__(
-        self,
-        __items: Union[Self, pmf.IterableT[ValueT], pmf.MappingT[ValueT]] = (),
-        /,
-        denominator: pmf.Probability = 0,
-        normalize: bool = False,
-    ) -> None:
-        """Initialize object via super."""
-        super().__init__(
-            __items,
-            denominator=denominator,
-            normalize=normalize,
-        )
-
     @classmethod
-    def validate_value(cls, __value: Hashable, /) -> Hashable:
+    def validate_value(cls, __value: Hashable, /) -> AttackCounter:
         """Check input values and convert them as needed."""
         failtype = ""
         match __value:
@@ -166,21 +148,6 @@ class AttackPMF(PMF):
         if failtype:
             raise TypeError(f"not convertible to AttackCounter: {failtype!r}")
         return super().validate_value(__value)
-
-    # Override type signatures for methods returning Hashable.
-    @property
-    def pairs(self) -> Mapping[AttackCounter, pmf.Probability]:  # type: ignore
-        """Provide read-only access to the probability mapping."""
-        return cast(Mapping[AttackCounter, pmf.Probability], super().pairs)
-
-    @property
-    def support(self) -> Sequence[AttackCounter]:
-        """Return all of the values with nonzero probability."""
-        return cast(Sequence[AttackCounter], super().support)
-
-    def __iter__(self) -> Iterator[AttackCounter]:
-        """Iterate over the discrete values."""
-        return cast(Iterator[AttackCounter], super().__iter__())
 
 
 @dataclass

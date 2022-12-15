@@ -23,8 +23,8 @@ class TestAttackPMFInit:
         """Test copying another AttackPMF."""
         pmf1 = AttackPMF()
         pmf2 = AttackPMF(pmf1)
-        assert pmf1.pairs is pmf2.pairs
-        assert pmf1.denominator is pmf2.denominator
+        assert pmf1.pairs == pmf2.pairs
+        assert pmf1.denominator == pmf2.denominator
 
     def test_attack_int(self) -> None:
         """Test with integer arguments."""
@@ -54,7 +54,7 @@ class TestAttackPMFInit:
         counter1 = AttackCounter(1)
         counter2 = AttackCounter(2)
         counter3 = AttackCounter(2)
-        pmap = {
+        pmap: dict[AttackCounter, Probability] = {
             counter1: 1,
             counter2: Fraction(2),
             counter3: Fraction(3, 1),

@@ -9,7 +9,7 @@ from collections import Counter
 from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
 from fractions import Fraction
 from types import MappingProxyType
-from typing import cast, Optional, Self, TypeVar, Union
+from typing import Any, cast, Generic, Optional, Self, TypeVar, Union
 
 # TODO: Allow Decimal or Rational too?
 DiceValue = Union[int, Fraction]
@@ -17,21 +17,23 @@ Probability = Union[int, Fraction]
 
 # PMF input types.
 _DVT = TypeVar("_DVT", bound=Hashable)
-PairT = tuple[_DVT, Optional[Probability]]
-IterableT = Union[Iterable[_DVT], Iterable[PairT[_DVT]]]
-MappingT = Mapping[_DVT, Optional[Probability]]
+PairT = tuple[_DVT, Probability]
+IterableT = Iterable[PairT[_DVT]]
+MappingT = Mapping[_DVT, Probability]
 DieRange = Union[int, range]
 
 
-class PMF(Mapping[Hashable, Probability]):
+class PMF(Mapping[_DVT, Probability], Generic[_DVT]):
     """Finite probability mass function."""
 
-    __pairs: Mapping[Hashable, Probability]
+    __pairs: Mapping[_DVT, Probability]
     __total: Probability
 
     def __init__(
         self,
-        __items: Union[Self, MappingT[Hashable], IterableT[Hashable]] = (),
+        __items: Union[
+            Mapping[Any, Probability], Iterable[tuple[Any, Probability]]
+        ] = (),
         /,
         *,
         denominator: Probability = 0,
@@ -40,15 +42,8 @@ class PMF(Mapping[Hashable, Probability]):
         """Initialize PMF object."""
         items: list[tuple[Hashable, Optional[Probability]]] = []
         match __items:
-            case PMF():
-                if denominator or normalize:
-                    items = list(__items.items())
-                else:
-                    self.__pairs = __items.__pairs
-                    self.__total = __items.__total
-                    return
             case Mapping():
-                mapping = cast(MappingT[Hashable], __items)
+                mapping = cast(Mapping[Hashable, Any], __items)
                 for mv, mp in mapping.items():
                     match mp:
                         case int() | Fraction() | None:
@@ -58,12 +53,8 @@ class PMF(Mapping[Hashable, Probability]):
             case Iterable():
                 for item in __items:
                     match item:
-                        case [Hashable() as iv, int() | Fraction() | None as ip]:
+                        case [Hashable() as iv, ip]:
                             items.append((iv, ip))
-                        case [iv, int() | Fraction() | None as p]:
-                            raise TypeError(f"unhashable type: {type(iv).__name__!r}")
-                        case Hashable() as iv:
-                            items.append((iv, 1))
                         case _:
                             raise TypeError(
                                 f"unhashable type: {type(item).__name__!r}"
@@ -71,24 +62,18 @@ class PMF(Mapping[Hashable, Probability]):
             case _:
                 raise TypeError(f"{type(__items).__name__!r}")
         # Collect pairs.
-        pairs: dict[Hashable, Probability] = {}
+        pairs: dict[_DVT, Probability] = {}
         total: Probability = 0
         remainder: Probability = 0
-        remainder_set: set[Hashable] = set()
+        remainder_set: set[_DVT] = set()
         for item in items:
-            match item:
-                case [v, None]:
-                    # Add v to the remainder set.
-                    remainder_set.add(v)
-                    p = 0
-                case [v, int() | Fraction() as p]:
-                    pass
-                case _:
-                    v = item
-                    p = 1
-            v = self.validate_value(v)  # Subtypes override this.
-            pairs.setdefault(v, 0)
-            pairs[v] += p
+            v, p = item
+            valid = self.validate_value(v)  # Subtypes override this.
+            if p is None:
+                remainder_set.add(valid)
+                p = 0
+            pairs.setdefault(valid, 0)
+            pairs[valid] += p
             total += p
         # Determine & distribute remainder, if any.
         if denominator:
@@ -113,9 +98,9 @@ class PMF(Mapping[Hashable, Probability]):
         self.__total = total
 
     @classmethod
-    def validate_value(cls, __value: Hashable, /) -> Hashable:
+    def validate_value(cls, __value: Hashable, /) -> _DVT:
         """Check input values and convert them as needed."""
-        return __value
+        return cast(_DVT, __value)  # Override this!
 
     @property
     def denominator(self) -> Probability:
@@ -123,12 +108,12 @@ class PMF(Mapping[Hashable, Probability]):
         return self.__total
 
     @property
-    def pairs(self) -> Mapping[Hashable, Probability]:
+    def pairs(self) -> Mapping[_DVT, Probability]:
         """Provide read-only access to the probability mapping."""
         return self.__pairs
 
     @property
-    def support(self) -> Sequence[Hashable]:
+    def support(self) -> Sequence[_DVT]:
         """Return all of the values with nonzero probability."""
         return tuple(v for v, p in self.__pairs.items() if p)
 
@@ -136,11 +121,11 @@ class PMF(Mapping[Hashable, Probability]):
         """Normalize denominator to 1 and return the result."""
         return self if self.__total == 1 else type(self)(self, normalize=True)
 
-    def __getitem__(self, key: Hashable) -> Probability:
+    def __getitem__(self, key: _DVT) -> Probability:
         """Return the probability for a given value."""
         return self.__pairs[key]
 
-    def __iter__(self) -> Iterator[Hashable]:
+    def __iter__(self) -> Iterator[_DVT]:
         """Iterate over the discrete values."""
         return iter(self.__pairs)
 
@@ -166,25 +151,11 @@ class PMF(Mapping[Hashable, Probability]):
         return self.__format__("")
 
 
-class DicePMF(PMF):
+class DicePMF(PMF[DiceValue]):
     """Probability mass function for dice rolls."""
 
-    def __init__(
-        self,
-        __items: Union[Self, MappingT[DiceValue], IterableT[DiceValue]] = (),
-        /,
-        denominator: Probability = 0,
-        normalize: bool = False,
-    ) -> None:
-        """Initialize object via super."""
-        super().__init__(
-            __items,
-            denominator=denominator,
-            normalize=normalize,
-        )
-
     @classmethod
-    def validate_value(cls, __value: Hashable, /) -> Hashable:
+    def validate_value(cls, __value: Hashable, /) -> DiceValue:
         """Check input values and convert them as needed."""
         match __value:
             case int() | Fraction():
@@ -202,22 +173,8 @@ class DicePMF(PMF):
     def roll_1dK(cls, __sides: DieRange, /) -> Self:
         """Generate the PMF for rolling one fair die with K sides."""
         faces = die_range(__sides) if isinstance(__sides, int) else __sides
-        return cls(faces)
-
-    # Override type signatures for methods returning Hashable.
-    @property
-    def pairs(self) -> Mapping[DiceValue, Probability]:  # type: ignore
-        """Provide read-only access to the probability mapping."""
-        return cast(Mapping[DiceValue, Probability], super().pairs)
-
-    @property
-    def support(self) -> Sequence[DiceValue]:
-        """Return all of the values with nonzero probability."""
-        return cast(Sequence[DiceValue], super().support)
-
-    def __iter__(self) -> Iterator[DiceValue]:
-        """Iterate over the discrete values."""
-        return cast(Iterator[DiceValue], super().__iter__())
+        pairs = ((face, 1) for face in faces)
+        return cls(pairs)
 
 
 def die_range(__arg1: int, __arg2: Optional[int] = None, /) -> range:
@@ -289,7 +246,7 @@ def pmf_weight(__dice: DiceIterable) -> int:
     return multiset_perm(counts)
 
 
-class DiceTuplePMF(PMF):
+class DiceTuplePMF(PMF[DiceTuple]):
     """Probability mass function for analyzing raw dice pools.
 
     Use this when you need to analyze or select specific dice rolls
@@ -298,22 +255,8 @@ class DiceTuplePMF(PMF):
     count successes in a dice pool.
     """
 
-    def __init__(
-        self,
-        __items: Union[Self, MappingT[DiceTuple], IterableT[DiceTuple]] = (),
-        /,
-        denominator: Probability = 0,
-        normalize: bool = False,
-    ) -> None:
-        """Initialize object via super."""
-        super().__init__(
-            __items,
-            denominator=denominator,
-            normalize=normalize,
-        )
-
     @classmethod
-    def validate_value(cls, __value: Hashable, /) -> Hashable:
+    def validate_value(cls, __value: Hashable, /) -> DiceTuple:
         """Check input values and convert them as needed."""
         failtype = ""
         match __value:
@@ -384,21 +327,6 @@ class DiceTuplePMF(PMF):
             pmf.setdefault(total, 0)
             pmf[total] += count
         return DicePMF(pmf)
-
-    # Override type signatures for methods returning Hashable.
-    @property
-    def pairs(self) -> Mapping[DiceTuple, Probability]:  # type: ignore
-        """Provide read-only access to the probability mapping."""
-        return cast(Mapping[DiceTuple, Probability], super().pairs)
-
-    @property
-    def support(self) -> Sequence[DiceTuple]:
-        """Return all of the values with nonzero probability."""
-        return cast(Sequence[DiceTuple], super().support)
-
-    def __iter__(self) -> Iterator[DiceTuple]:
-        """Iterate over the discrete values."""
-        return cast(Iterator[DiceTuple], super().__iter__())
 
 
 # Call D(K) to create the PMF for rolling 1dK.

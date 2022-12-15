@@ -5,7 +5,7 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 import pytest
 
 import bones.pmf
-from bones.pmf import D, DicePMF, die_range
+from bones.pmf import D, DicePMF, DiceValue, die_range, Probability
 
 
 class TestDicePMFInit:
@@ -18,18 +18,18 @@ class TestDicePMFInit:
 
     def test_pmf_int(self) -> None:
         """Test with default arguments."""
-        items = (0,)
+        items: dict[DiceValue, Probability] = {0: 1}
         pmf = DicePMF(items)
         assert len(pmf) == 1
         assert pmf[0] == 1
 
     def test_pmf_copy(self) -> None:
         """Test copying another DicePMF."""
-        items = (0,)
+        items: dict[DiceValue, Probability] = {0: 1}
         pmf1 = DicePMF(items)
         pmf2 = DicePMF(pmf1)
-        assert pmf1.pairs is pmf2.pairs
-        assert pmf1.denominator is pmf2.denominator
+        assert pmf1.pairs == pmf2.pairs
+        assert pmf1.denominator == pmf2.denominator
 
     # The module should provide prebuilt dice objects for all of these.
     die_sizes = (2, 3, 4, 6, 8, 10, 12, 20, 30, 100, 1000)
