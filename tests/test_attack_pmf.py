@@ -24,7 +24,7 @@ class TestAttackPMFInit:
         pmf1 = AttackPMF()
         pmf2 = AttackPMF(pmf1)
         assert pmf1.pairs is pmf2.pairs
-        assert pmf1.total is pmf2.total
+        assert pmf1.denominator is pmf2.denominator
 
     def test_attack_int(self) -> None:
         """Test with integer arguments."""

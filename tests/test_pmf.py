@@ -26,4 +26,4 @@ class TestPMFInit:
         pmf1 = PMF(items)
         pmf2 = PMF(pmf1)
         assert pmf1.pairs is pmf2.pairs
-        assert pmf1.total is pmf2.total
+        assert pmf1.denominator is pmf2.denominator

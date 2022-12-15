@@ -28,9 +28,9 @@ import functools
 import keyword
 import tomllib
 import unicodedata
-from collections.abc import Collection, Iterator, Mapping
+from collections.abc import Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass, Field, fields, InitVar
-from typing import Any, BinaryIO, Optional, overload, Self, Union
+from typing import Any, BinaryIO, cast, Optional, overload, Self, Union
 
 from . import pmf
 from .pmf import PMF
@@ -140,12 +140,27 @@ class AttackPMF(PMF):
         denominator: pmf.Probability = 0,
         normalize: bool = False,
     ) -> None:
-        """Initialize AttackPMF object."""
+        """Initialize object via super."""
         super().__init__(
             __items,
             denominator=denominator,
             normalize=normalize,
         )
+
+    # Override type signatures for methods returning Hashable.
+    @property
+    def pairs(self) -> Mapping[AttackCounter, pmf.Probability]:  # type: ignore
+        """Provide read-only access to the probability mapping."""
+        return cast(Mapping[AttackCounter, pmf.Probability], super().pairs)
+
+    @property
+    def support(self) -> Sequence[AttackCounter]:
+        """Return all of the values with nonzero probability."""
+        return cast(Sequence[AttackCounter], super().support)
+
+    def __iter__(self) -> Iterator[AttackCounter]:
+        """Iterate over the discrete values."""
+        return cast(Iterator[AttackCounter], super().__iter__())
 
 
 @dataclass
