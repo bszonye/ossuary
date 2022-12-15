@@ -28,7 +28,7 @@ import functools
 import keyword
 import tomllib
 import unicodedata
-from collections.abc import Collection, Iterator, Mapping, Sequence
+from collections.abc import Collection, Hashable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, Field, fields, InitVar
 from typing import Any, BinaryIO, cast, Optional, overload, Self, Union
 
@@ -105,6 +105,7 @@ class ConditionalModifier(Modifier):
     """A modifier only applied in certain circumstances."""
 
 
+# TODO: Move AttackCounter & AttackPMF to bones.pmf?
 @dataclass(frozen=True)
 class AttackCounter:
     """Results counter for each step of the attack sequence."""
@@ -130,8 +131,6 @@ class AttackPMF(PMF):
 
     # Discrete value type specification.
     ValueT = Union[int, AttackCounter]  # Allowed input types.
-    ValueType = AttackCounter  # Expected value type.
-    ValueInit = AttackCounter  # Conversion function for other types.
 
     def __init__(
         self,
@@ -146,6 +145,27 @@ class AttackPMF(PMF):
             denominator=denominator,
             normalize=normalize,
         )
+
+    @classmethod
+    def validate_value(cls, __value: Hashable, /) -> Hashable:
+        """Check input values and convert them as needed."""
+        failtype = ""
+        match __value:
+            case AttackCounter():
+                pass
+            case [int() as attacks, int() as wounds, int() as mortals]:
+                __value = AttackCounter(attacks, wounds, mortals)
+            case [int() as attacks, int() as wounds]:
+                __value = AttackCounter(attacks, wounds)
+            case [int() as attacks]:
+                __value = AttackCounter(attacks)
+            case int() as attacks:
+                __value = AttackCounter(attacks)
+            case _:
+                failtype = type(__value).__name__
+        if failtype:
+            raise TypeError(f"not convertible to AttackCounter: {failtype!r}")
+        return super().validate_value(__value)
 
     # Override type signatures for methods returning Hashable.
     @property

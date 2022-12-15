@@ -6,27 +6,25 @@ import functools
 import itertools
 import math
 from collections import Counter
-from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
 from fractions import Fraction
-from numbers import Rational
 from types import MappingProxyType
 from typing import cast, Optional, Self, TypeVar, Union
 
+# TODO: Allow Decimal or Rational too?
+DiceValue = Union[int, Fraction]
 Probability = Union[int, Fraction]
 
 # PMF input types.
 _DVT = TypeVar("_DVT", bound=Hashable)
 PairT = tuple[_DVT, Optional[Probability]]
-IterableT = Iterable[Union[_DVT, PairT[_DVT]]]
+IterableT = Union[Iterable[_DVT], Iterable[PairT[_DVT]]]
 MappingT = Mapping[_DVT, Optional[Probability]]
 DieRange = Union[int, range]
 
 
 class PMF(Mapping[Hashable, Probability]):
     """Finite probability mass function."""
-
-    ValueType: type = Hashable
-    ValueInit: Optional[Callable[..., Hashable]] = None
 
     __pairs: Mapping[Hashable, Probability]
     __total: Probability
@@ -88,15 +86,7 @@ class PMF(Mapping[Hashable, Probability]):
                 case _:
                     v = item
                     p = 1
-            if not isinstance(v, self.ValueType):
-                # Try to convert the value.
-                converter = self.ValueInit
-                if converter is None:
-                    vtype = self.ValueType.__name__
-                    vactual = type(v).__name__
-                    raise TypeError(f"{vactual!r} object is not {vtype!r}")
-                else:
-                    v = converter(v)
+            v = self.validate_value(v)  # Subtypes override this.
             pairs.setdefault(v, 0)
             pairs[v] += p
             total += p
@@ -121,6 +111,11 @@ class PMF(Mapping[Hashable, Probability]):
         # Initialize attributes.
         self.__pairs = MappingProxyType(pairs)
         self.__total = total
+
+    @classmethod
+    def validate_value(cls, __value: Hashable, /) -> Hashable:
+        """Check input values and convert them as needed."""
+        return __value
 
     @property
     def denominator(self) -> Probability:
@@ -174,14 +169,9 @@ class PMF(Mapping[Hashable, Probability]):
 class DicePMF(PMF):
     """Probability mass function for dice rolls."""
 
-    # Discrete value type specification.
-    ValueT = Union[int, Fraction]
-    ValueType = Rational  # Expected value type.
-    ValueInit = Fraction  # Conversion function for other types.
-
     def __init__(
         self,
-        __items: Union[Self, MappingT[ValueT], IterableT[ValueT]] = (),
+        __items: Union[Self, MappingT[DiceValue], IterableT[DiceValue]] = (),
         /,
         denominator: Probability = 0,
         normalize: bool = False,
@@ -194,6 +184,20 @@ class DicePMF(PMF):
         )
 
     @classmethod
+    def validate_value(cls, __value: Hashable, /) -> Hashable:
+        """Check input values and convert them as needed."""
+        match __value:
+            case int() | Fraction():
+                pass
+            case float() | str():
+                __value = Fraction(__value)
+            case [int() as numerator, int() as denominator]:
+                __value = Fraction(numerator, denominator)
+            case _:
+                raise TypeError(f"irrational type: {type(__value).__name__!r}")
+        return super().validate_value(__value)
+
+    @classmethod
     @functools.cache
     def roll_1dK(cls, __sides: DieRange, /) -> Self:
         """Generate the PMF for rolling one fair die with K sides."""
@@ -202,18 +206,18 @@ class DicePMF(PMF):
 
     # Override type signatures for methods returning Hashable.
     @property
-    def pairs(self) -> Mapping[ValueT, Probability]:  # type: ignore
+    def pairs(self) -> Mapping[DiceValue, Probability]:  # type: ignore
         """Provide read-only access to the probability mapping."""
-        return cast(Mapping[DicePMF.ValueT, Probability], super().pairs)
+        return cast(Mapping[DiceValue, Probability], super().pairs)
 
     @property
-    def support(self) -> Sequence[ValueT]:
+    def support(self) -> Sequence[DiceValue]:
         """Return all of the values with nonzero probability."""
-        return cast(Sequence[DicePMF.ValueT], super().support)
+        return cast(Sequence[DiceValue], super().support)
 
-    def __iter__(self) -> Iterator[ValueT]:
+    def __iter__(self) -> Iterator[DiceValue]:
         """Iterate over the discrete values."""
-        return cast(Iterator[DicePMF.ValueT], super().__iter__())
+        return cast(Iterator[DiceValue], super().__iter__())
 
 
 def die_range(__arg1: int, __arg2: Optional[int] = None, /) -> range:
@@ -227,64 +231,62 @@ def die_range(__arg1: int, __arg2: Optional[int] = None, /) -> range:
     return range(1, __arg1 + 1) if __arg2 is None else range(__arg1, __arg2 + 1)
 
 
-class DiceTuple(tuple[int]):
-    """A tuple of integers, used to record dice pool results."""
+# TODO: allow other Hashable dice values?
+DiceIterable = Iterable[int]
+DiceSequence = Sequence[int]
+DiceTuple = tuple[int, ...]
 
-    @classmethod
-    def comb(cls, dice: int, *, sides: int = 6) -> int:
-        """Calculate the number of distinct dice pool combinations."""
-        return math.comb(dice + sides - 1, dice)
 
-    @classmethod
-    @functools.cache
-    def enumerate(cls, dice: int, *, sides: DieRange = 6) -> Iterable[Self]:
-        """Generate all distinct dice pool combinations."""
-        if dice < 1:
-            return ()
-        faces = die_range(sides) if isinstance(sides, int) else sides
-        return (
-            cls(pool) for pool in itertools.combinations_with_replacement(faces, dice)
-        )
+@functools.cache
+def enumerate_NdK(dice: int, *, sides: DieRange = 6) -> Iterable[DiceTuple]:
+    """Generate all distinct dice pool combinations."""
+    if dice < 1:
+        return ()
+    faces = die_range(sides) if isinstance(sides, int) else sides
+    return (
+        tuple(pool) for pool in itertools.combinations_with_replacement(faces, dice)
+    )
 
-    @staticmethod
-    @functools.cache
-    def _multiperm(__iter: Iterable[int], /) -> int:
-        """Count multiset permutations for item counts in k[n].
 
-        The iterable parameter provides the sizes of the multiset's
-        equivalence classes.  For example, the multiset AAABBCC has
-        three equivalence classes of size (3, 2, 2).
+@functools.cache
+def multiset_perm(__iter: Iterable[int], /) -> int:
+    """Count multiset permutations for item counts in k[n].
 
-        The general formula is N! / ∏(k[n]!) where:
-        - N    is the total number of items ∑k[n], and
-        - k[n] is the number of items in each equivalence class.
-        """
-        k = sorted(__iter)
-        n = sum(k)
-        if not n:
-            return 0
-        # Use N! / k[0]! as a starting point to take advantage of
-        # optimizations in the math.perm function.
-        weight = math.perm(n, n - k[0])
-        # Divide the running product by k[n]! for each other subgroup.
-        for count in k[1:]:
-            weight //= math.factorial(count)
-        return weight
+    The iterable parameter provides the sizes of the multiset's
+    equivalence classes.  For example, the multiset AAABBCC has
+    three equivalence classes of size (3, 2, 2).
 
-    @functools.cached_property
-    def weight(self) -> int:
-        """Determine the PMF weight of a DiceTuple.
+    The general formula is N! / ∏(k[n]!) where:
+    - N    is the total number of items ∑k[n], and
+    - k[n] is the number of items in each equivalence class.
+    """
+    k = sorted(__iter)
+    n = sum(k)
+    if not n:
+        return 0
+    # Use N! / k[0]! as a starting point to take advantage of
+    # optimizations in the math.perm function.
+    weight = math.perm(n, n - k[0])
+    # Divide the running product by k[n]! for each other subgroup.
+    for count in k[1:]:
+        weight //= math.factorial(count)
+    return weight
 
-        Given a dice tuple, determine how many ways there are to arrange
-        the dice into equivalent rolls.  For example, there are six ways
-        to arrange (3, 2, 1), but there are only three arrangements of
-        (6, 6, 1).  This number is useful for generating PMF weights for
-        groups of equivalent dice rolls.  For example:
 
-        {(roll, roll.weight) for roll in DiceTuple.enumerate(dice=dice)}
-        """
-        counts = tuple(sorted(Counter(self).values()))
-        return self._multiperm(counts)
+@functools.cache
+def pmf_weight(__dice: DiceIterable) -> int:
+    """Determine the PMF weight of a DiceTuple.
+
+    Given a dice tuple, determine how many ways there are to arrange
+    the dice into equivalent rolls.  For example, there are six ways
+    to arrange (3, 2, 1), but there are only three arrangements of
+    (6, 6, 1).  This number is useful for generating PMF weights for
+    groups of equivalent dice rolls.  For example:
+
+    {(roll, roll.weight) for roll in enumerate_NdK(dice=dice)}
+    """
+    counts = tuple(sorted(Counter(__dice).values()))
+    return multiset_perm(counts)
 
 
 class DiceTuplePMF(PMF):
@@ -295,10 +297,6 @@ class DiceTuplePMF(PMF):
     "roll 4d6, dropping the lowest die."  You don't need this class to
     count successes in a dice pool.
     """
-
-    # Discrete value type specification.
-    ValueType = DiceTuple
-    ValueInit = DiceTuple
 
     def __init__(
         self,
@@ -315,10 +313,31 @@ class DiceTuplePMF(PMF):
         )
 
     @classmethod
+    def validate_value(cls, __value: Hashable, /) -> Hashable:
+        """Check input values and convert them as needed."""
+        failtype = ""
+        match __value:
+            case int():
+                __value = (__value,)
+            case Iterable() as items:
+                # TODO: pyright wants this cast. can we do better?
+                __value = tuple(cast(Iterable[Hashable], items))
+                for die in __value:
+                    # TODO: allow other Hashable die values?
+                    if not isinstance(die, int):
+                        failtype = type(die).__name__
+                        break
+            case _:
+                failtype = type(__value).__name__
+        if failtype:
+            raise TypeError(f"not convertible to dice tuple: {failtype!r}")
+        return super().validate_value(__value)
+
+    @classmethod
     @functools.cache
     def roll_NdK(cls, dice: int = 1, *, sides: DieRange = 6) -> Self:
         """Create the PMF for rolling a pool of N dice with K sides."""
-        return cls((p, p.weight) for p in DiceTuple.enumerate(dice=dice, sides=sides))
+        return cls((p, pmf_weight(p)) for p in enumerate_NdK(dice=dice, sides=sides))
 
     @classmethod
     @functools.cache
