@@ -82,11 +82,18 @@ matrix.extras.features = [
 includes = ["bones"]
 
 [tool.pdm.dev-dependencies]
-lint = [
-    "black",
+# The project also uses several tools that don't depend on installation
+# into the project environment (use pipx instead):
+
+# pipx install black
+# pipx install flake8
+# pipx inject --include-apps --include-deps flake8 \
+#      flake8-bugbear flake8-docstrings flake8-isort flake8-pyi
+# pipx inject --include-apps flake8 isort
+# pipx install pre-commit
+
+types = [
     "mypy @ git+https://github.com/python/mypy.git",
-    "pip",
-    "pre-commit",
     "pyright",
 ]
 test = [
