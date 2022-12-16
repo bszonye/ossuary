@@ -29,7 +29,7 @@ class TestDicePMFInit:
         pmf1 = DicePMF(items)
         pmf2 = DicePMF(pmf1)
         assert pmf1.pairs == pmf2.pairs
-        assert pmf1.denominator == pmf2.denominator
+        assert pmf1.total_weight == pmf2.total_weight
 
     # The module should provide prebuilt dice objects for all of these.
     die_sizes = (2, 3, 4, 6, 8, 10, 12, 20, 30, 100, 1000)
@@ -52,7 +52,7 @@ class TestDicePMFInit:
             assert type(v) is int
             assert type(p) is int
             assert p == 1
-        assert die.denominator == size
+        assert die.total_weight == size
         assert die.support == tuple(die_range(size))
 
     def test_special_dice(self) -> None:

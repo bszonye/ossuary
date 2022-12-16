@@ -9,93 +9,100 @@ from collections import Counter
 from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
 from fractions import Fraction
 from types import MappingProxyType
-from typing import Any, cast, Generic, Optional, Self, TypeVar, Union
+from typing import Any, cast, Optional, Self, TypeVar, Union
 
 # TODO: Allow Decimal or Rational too?
+DieRange = Union[int, range]
 DiceValue = Union[int, Fraction]
 Probability = Union[int, Fraction]
 
 # PMF input types.
 _DVT = TypeVar("_DVT", bound=Hashable)
-PairT = tuple[_DVT, Probability]
-IterableT = Iterable[PairT[_DVT]]
-MappingT = Mapping[_DVT, Probability]
-DieRange = Union[int, range]
+PairSpec = tuple[_DVT, Probability]
+MappingSpec = Mapping[_DVT, Probability]
 
 
-class PMF(Mapping[_DVT, Probability], Generic[_DVT]):
-    """Finite probability mass function."""
+class BasePMF(Mapping[_DVT, Probability]):
+    """Generic base class for finite probability mass functions."""
 
-    __pairs: Mapping[_DVT, Probability]
-    __total: Probability
+    __pweight: Mapping[_DVT, Probability]
+    __ptotal: Probability
 
     def __init__(
         self,
-        __items: Union[
-            Mapping[Any, Probability], Iterable[tuple[Any, Probability]]
-        ] = (),
+        __items: Union[MappingSpec[Any], Iterable[PairSpec[Any]]] = (),
         /,
         *,
-        denominator: Probability = 0,
-        normalize: bool = False,
+        normalize: Probability = 0,
     ) -> None:
         """Initialize PMF object."""
-        items: list[tuple[Hashable, Optional[Probability]]] = []
+        if normalize < 0:  # Reserve negative sizes for future expansion.
+            raise ValueError(f"{normalize=} < 0")
+        # Convert input mapping or iterable to a list of pairs.
+        items: list[PairSpec[Any]]
         match __items:
+            case BasePMF() if not normalize and type(__items) is type(self):
+                # Copy another PMF of the same type.
+                copy = cast(BasePMF[_DVT], __items)
+                self.__pweight = copy.__pweight
+                self.__ptotal = copy.__ptotal
+                return
             case Mapping():
-                mapping = cast(Mapping[Hashable, Any], __items)
-                for mv, mp in mapping.items():
-                    match mp:
-                        case int() | Fraction() | None:
-                            items.append((mv, mp))
-                        case _:  # Verify mapping cast.
-                            raise TypeError(f"not a probability: {mp!r}")
+                # Get values and weights from a mapping.
+                mapping = cast(MappingSpec[Any], __items)
+                items = list(mapping.items())
             case Iterable():
-                for item in __items:
-                    match item:
-                        case [Hashable() as iv, ip]:
-                            items.append((iv, ip))
-                        case _:
-                            raise TypeError(
-                                f"unhashable type: {type(item).__name__!r}"
-                            )
+                # Get values and weights by iterating over pairs.
+                items = list(__items)
             case _:
-                raise TypeError(f"{type(__items).__name__!r}")
-        # Collect pairs.
-        pairs: dict[_DVT, Probability] = {}
-        total: Probability = 0
-        remainder: Probability = 0
-        remainder_set: set[_DVT] = set()
+                raise TypeError(f"not iterable: {type(__items).__name__!r}")
+        # Collect value weights.
+        pweight: dict[_DVT, Probability] = {}  # Probability weights.
+        rweight: dict[_DVT, Probability] = {}  # Remainder weights.
         for item in items:
-            v, p = item
-            valid = self.validate_value(v)  # Subtypes override this.
-            if p is None:
-                remainder_set.add(valid)
-                p = 0
-            pairs.setdefault(valid, 0)
-            pairs[valid] += p
-            total += p
-        # Determine & distribute remainder, if any.
-        if denominator:
-            remainder = denominator - total
-        if remainder:
-            if not remainder_set:
-                raise ValueError(
-                    f"total probability {total} < denominator {denominator}"
-                )
-            total = denominator
-            shares = len(remainder_set)
-            if shares != 1:
-                remainder = Fraction(remainder, shares)
-            for v in remainder_set:
-                pairs[v] += remainder
-        # Optionally normalize total probability to 1.
-        if normalize and total != 1:
-            pairs = {v: Fraction(p, total) for v, p in pairs.items()}
-            total = 1
+            match item:  # Check input structure.
+                case [xvalue, int() | Fraction() as weight]:
+                    pass
+                case [_, xweight]:
+                    raise TypeError(f"not a probability: {type(xweight).__name__!r}")
+                case _:
+                    raise TypeError(f"not a pair: {type(item).__name__!r}")
+            value = self.validate_value(xvalue)  # Subtypes override this.
+            if not isinstance(value, Hashable):
+                raise TypeError(f"unhashable type: {type(value).__name__!r}")
+            if weight < 0:
+                rweight.setdefault(value, 0)
+                rweight[value] -= weight
+                weight = 0
+            pweight.setdefault(value, 0)
+            pweight[value] += weight
+        # Determine the normalized weight and remainder.
+        ptotal: Probability = sum(pweight.values())
+        rtotal: Probability = sum(rweight.values())
+        if not normalize:
+            normalize = ptotal or 1  # Ensure a nonzero denominator.
+        remainder: Probability = normalize - ptotal
+        # Distribute the remainder, if there are any flex weights.
+        if remainder and rtotal:
+            scale = Fraction(remainder, rtotal)
+            for v, w in rweight.items():
+                rpw: Probability = scale * w
+                pweight[v] += rpw
+            ptotal = sum(pweight.values())
+        # Scale weights to the normalized total.
+        scale = Fraction(normalize, ptotal or 1)
+        if scale != 1:
+            for v, w in pweight.items():
+                pweight[v] = scale * w
+            ptotal = sum(pweight.values())
+        # Reduce integral fractions.
+        for v, w in pweight.items():
+            numerator, denominator = w.as_integer_ratio()
+            if denominator == 1:
+                pweight[v] = numerator
         # Initialize attributes.
-        self.__pairs = MappingProxyType(pairs)
-        self.__total = total
+        self.__pweight = MappingProxyType(pweight)
+        self.__ptotal = ptotal or normalize
 
     @classmethod
     def validate_value(cls, __value: Hashable, /) -> _DVT:
@@ -103,46 +110,89 @@ class PMF(Mapping[_DVT, Probability], Generic[_DVT]):
         return cast(_DVT, __value)  # Override this!
 
     @property
-    def denominator(self) -> Probability:
-        """Provide read-only access to the total probability."""
-        return self.__total
+    def int_weight(self) -> int:
+        """Find the minimum total weight to avoid fractional weights."""
+        # First, get all of the non-zero weights and sum them.
+        weights = [w for w in self.values() if w]
+        total = sum(weights)
+        if not total:
+            return 1
+
+        # Next, determine whether we need to multiply out fractions.
+        fracs = [w.denominator for w in weights]
+        lcm = math.lcm(*fracs)
+
+        # Resize based on the gcd (if integers) or lcm (if fractions).
+        size: Probability
+        if lcm == 1:
+            nums = [w.numerator for w in weights]
+            gcd = math.gcd(*nums)
+            size = Fraction(total, gcd)
+        else:
+            size = Fraction(lcm * total, 1)
+
+        # Return the integral size.
+        assert size.denominator == 1
+        return size.numerator
 
     @property
-    def pairs(self) -> Mapping[_DVT, Probability]:
+    def total_weight(self) -> Probability:
+        """Provide read-only access to the total probability."""
+        return self.__ptotal
+
+    @property
+    def pairs(self) -> MappingSpec[_DVT]:
         """Provide read-only access to the probability mapping."""
-        return self.__pairs
+        return self.__pweight
 
     @property
     def support(self) -> Sequence[_DVT]:
         """Return all of the values with nonzero probability."""
-        return tuple(v for v, p in self.__pairs.items() if p)
+        return tuple(v for v, p in self.__pweight.items() if p)
 
-    def normalized(self) -> Self:
-        """Normalize denominator to 1 and return the result."""
-        return self if self.__total == 1 else type(self)(self, normalize=True)
+    def normalized(self, __total: Probability = 0, /) -> Self:
+        """Normalize to a given total weight and return the result."""
+        if __total < 0:  # Reserve negative sizes for future expansion.
+            raise ValueError(f"total weight {__total} < 0")
+        if not __total:
+            __total = self.int_weight
+        return (
+            self if self.__ptotal == __total else type(self)(self, normalize=__total)
+        )
 
     def __getitem__(self, key: _DVT) -> Probability:
         """Return the probability for a given value."""
-        return self.__pairs[key]
+        return self.__pweight[key]
 
     def __iter__(self) -> Iterator[_DVT]:
         """Iterate over the discrete values."""
-        return iter(self.__pairs)
+        return iter(self.__pweight)
 
     def __len__(self) -> int:
         """Return the number of discrete values in the mapping."""
-        return len(self.__pairs)
+        return len(self.__pweight)
 
     def __format__(self, spec: str) -> str:
         """Format the PMF according to the format spec."""
+        ftype: type
+        norm = 1  # Converts all weights to fractions.
+        if not spec:
+            ftype = Fraction
+        elif spec[-1] == "s":
+            ftype = str
+        elif spec[-1] in "bcdoxXn":
+            ftype = int
+            norm = 0  # Converts all weights to integers.
+        else:
+            ftype = float
+
+        # Normalize weights and widths.
+        npmf = self.normalized(norm)
+        width = max(len(str(v)) for v in npmf)
+
         out = "{\n"
-        for value, weight in self.__pairs.items():
-            fw: str
-            if spec:
-                fw = format(float(Fraction(weight, self.__total)), spec)
-            else:
-                fw = str(weight)
-            out += f"    {value}: {fw},\n"
+        for value, weight in npmf.items():
+            out += f"{value!s:>{width+4}}: {ftype(weight):{spec}},\n"
         out += "}"
         return out
 
@@ -151,8 +201,12 @@ class PMF(Mapping[_DVT, Probability], Generic[_DVT]):
         return self.__format__("")
 
 
-class DicePMF(PMF[DiceValue]):
-    """Probability mass function for dice rolls."""
+class PMF(BasePMF[Hashable]):
+    """PMF for any Hashable value."""
+
+
+class DicePMF(BasePMF[DiceValue]):
+    """PMF for numeric values derived from dice rolls."""
 
     @classmethod
     def validate_value(cls, __value: Hashable, /) -> DiceValue:
@@ -163,6 +217,8 @@ class DicePMF(PMF[DiceValue]):
             case float() | str():
                 __value = Fraction(__value)
             case [int() as numerator, int() as denominator]:
+                # TODO: test this
+                # TODO: convert integral fractions to int?
                 __value = Fraction(numerator, denominator)
             case _:
                 raise TypeError(f"irrational type: {type(__value).__name__!r}")
@@ -246,7 +302,7 @@ def pmf_weight(__dice: DiceIterable) -> int:
     return multiset_perm(counts)
 
 
-class DiceTuplePMF(PMF[DiceTuple]):
+class DiceTuplePMF(BasePMF[DiceTuple]):
     """Probability mass function for analyzing raw dice pools.
 
     Use this when you need to analyze or select specific dice rolls
@@ -273,7 +329,7 @@ class DiceTuplePMF(PMF[DiceTuple]):
             case _:
                 failtype = type(__value).__name__
         if failtype:
-            raise TypeError(f"not convertible to dice tuple: {failtype!r}")
+            raise TypeError(f"not a dice tuple: {failtype!r}")
         return super().validate_value(__value)
 
     @classmethod
@@ -346,9 +402,9 @@ D100 = D(100)
 D1000 = D(1000)
 
 # Special die sizes.
-_R00 = die_range(0, 99)
-D00 = D(_R00)  # D100 counted from zero.
-_R000 = die_range(0, 999)
-D000 = D(_R000)  # D1000 counted from zero.
-_RF = die_range(-1, +1)
-DF = D(_RF)  # Fate/Fudge dice.
+R00 = die_range(0, 99)
+D00 = D(R00)  # D100 counted from zero.
+R000 = die_range(0, 999)
+D000 = D(R000)  # D1000 counted from zero.
+RF = die_range(-1, +1)
+DF = D(RF)  # Fate/Fudge dice.

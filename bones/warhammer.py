@@ -32,7 +32,7 @@ from collections.abc import Collection, Hashable, Iterator, Mapping
 from dataclasses import dataclass, Field, fields, InitVar
 from typing import Any, BinaryIO, Optional, overload, Self, Union
 
-from .pmf import DicePMF, PMF
+from .pmf import BasePMF, DicePMF
 
 # Type definitions.
 NameMapping = Mapping[str, Any]
@@ -72,7 +72,7 @@ class RandomizableValue(Characteristic):
                 return NumericValue(__value)
             case str():
                 return RandomValue(__value)
-            case PMF():
+            case BasePMF():
                 return RandomValue(__value)
             case _:
                 raise TypeError
@@ -125,7 +125,7 @@ class AttackCounter:
                 raise TypeError(f"{f.name!r}: expected {vtype!r}, not {vactual!r}")
 
 
-class AttackPMF(PMF[AttackCounter]):
+class AttackPMF(BasePMF[AttackCounter]):
     """Probability mass function for attack results."""
 
     @classmethod
