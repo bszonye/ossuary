@@ -174,7 +174,12 @@ class BasePMF(Mapping[_DVT, Probability]):
 
     def __format__(self, spec: str) -> str:
         """Format the PMF according to the format spec."""
-        ftype: type
+        # The Fraction type doesn't support any format specifications,
+        # so we need to convert to float, int, or str to use them.  The
+        # formatted output also normalizes all probability weights to
+        # normalize=1 (fractions summing to 1) or normalize=0 (smallest
+        # integers) to avoid explicitly showing the total weight.
+        ftype: type = float
         norm = 1  # Converts all weights to fractions.
         if not spec:
             ftype = Fraction
@@ -183,18 +188,16 @@ class BasePMF(Mapping[_DVT, Probability]):
         elif spec[-1] in "bcdoxXn":
             ftype = int
             norm = 0  # Converts all weights to integers.
-        else:
-            ftype = float
 
         # Normalize weights and widths.
         npmf = self.normalized(norm)
         width = max(len(str(v)) for v in npmf)
 
-        out = "{\n"
-        for value, weight in npmf.items():
-            out += f"{value!s:>{width+4}}: {ftype(weight):{spec}},\n"
-        out += "}"
-        return out
+        out = [
+            f"{value!s:>{width}}: {ftype(weight):{spec}}"
+            for value, weight in npmf.items()
+        ]
+        return "\n".join(out)
 
     def __str__(self) -> str:
         """Format the PMF for printing."""
