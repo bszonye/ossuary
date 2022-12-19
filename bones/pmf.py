@@ -5,13 +5,13 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 import functools
 import itertools
 import math
+import numbers
 from collections import Counter
 from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
 from fractions import Fraction
 from types import MappingProxyType
 from typing import Any, cast, Optional, Self, TypeVar, Union
 
-# TODO: Allow Decimal or Rational too?
 DieRange = Union[int, range]
 DiceValue = Union[int, Fraction]
 Probability = Union[int, Fraction]
@@ -160,6 +160,86 @@ class BasePMF(Mapping[_DVT, Probability]):
             self if self.__ptotal == __total else type(self)(self, normalize=__total)
         )
 
+    def tabulate(
+        self,
+        __spec: str = "",
+        /,
+        *,
+        align: bool = True,
+        separator: Optional[str] = None,
+    ) -> Sequence[str]:
+        """Format PMF as a table."""
+        # Validate & initialize parameters.
+        if not self:
+            return tuple()
+        if separator is None:
+            separator = "  " if align else ": "
+        specs = __spec.split(":", 1)
+        vspec: str = specs[0]
+        wspec: str = specs[-1]  # Same as vspec if there's no colon.
+
+        # Format columns.
+        def column(item: Any, spec: str, width: int = 0, frac: int = 0) -> str:
+            """Format an object to spec, with extra width controls."""
+            # Fractions don't support format specs, and it's not obvious
+            # how they'd work.  For now just convert to float.
+            if spec and isinstance(item, Fraction):
+                item = float(item)
+
+            # Simple alignment: numbers right, everything else left.
+            # Use explicit alignment + sufficient width to override.
+            text = format(item, spec)
+            if isinstance(item, numbers.Number):
+                text = text.rjust(width)
+            else:
+                text = text.ljust(width)
+            return text
+
+        def measure(items: Iterable[Any], spec: str) -> int:
+            if not align:  # Use minimum width.
+                return 0
+            width = 0  # Greatest overall width.
+            for item in items:
+                text = column(item, spec)
+                width = max(width, len(text))
+            return width
+
+        # Normalize weights.
+        pmf = self.normalized(0 if wspec and wspec[-1] in "Xbcdnox" else 1)
+        # Determine the minimum column & fraction widths.
+        vwidth = measure(pmf.keys(), vspec)
+        wwidth = measure(pmf.values(), wspec)
+        # Generate text.
+        return tuple(
+            separator.join(
+                (
+                    column(value, vspec, vwidth),
+                    column(weight, wspec, wwidth),
+                )
+            )
+            for value, weight in pmf.items()
+        )
+
+    def __format__(self, spec: str) -> str:
+        """Format the PMF according to the format spec."""
+        rows = self.tabulate(spec, align=False)
+        return "{" + ", ".join(rows) + "}"
+
+    def __repr__(self) -> str:
+        """Format the PMF for diagnostics."""
+        params = (
+            repr(dict(self.__pweight))
+            if self.__pweight
+            else f"normalize={self.__ptotal!r}"
+            if self.__ptotal != 1
+            else ""
+        )
+        return f"{type(self).__name__}({params})"
+
+    def __str__(self) -> str:
+        """Format the PMF for printing."""
+        return self.__format__("")
+
     def __getitem__(self, key: _DVT) -> Probability:
         """Return the probability for a given value."""
         return self.__pweight[key]
@@ -171,37 +251,6 @@ class BasePMF(Mapping[_DVT, Probability]):
     def __len__(self) -> int:
         """Return the number of discrete values in the mapping."""
         return len(self.__pweight)
-
-    def __format__(self, spec: str) -> str:
-        """Format the PMF according to the format spec."""
-        # The Fraction type doesn't support any format specifications,
-        # so we need to convert to float, int, or str to use them.  The
-        # formatted output also normalizes all probability weights to
-        # normalize=1 (fractions summing to 1) or normalize=0 (smallest
-        # integers) to avoid explicitly showing the total weight.
-        ftype: type = float
-        norm = 1  # Converts all weights to fractions.
-        if not spec:
-            ftype = Fraction
-        elif spec[-1] == "s":
-            ftype = str
-        elif spec[-1] in "bcdoxXn":
-            ftype = int
-            norm = 0  # Converts all weights to integers.
-
-        # Normalize weights and widths.
-        npmf = self.normalized(norm)
-        width = max(len(str(v)) for v in npmf)
-
-        out = [
-            f"{value!s:>{width}}: {ftype(weight):{spec}}"
-            for value, weight in npmf.items()
-        ]
-        return "\n".join(out)
-
-    def __str__(self) -> str:
-        """Format the PMF for printing."""
-        return self.__format__("")
 
 
 class PMF(BasePMF[Hashable]):
