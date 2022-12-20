@@ -181,28 +181,22 @@ class BasePMF(Mapping[_DVT, Probability]):
         # Format columns.
         def column(item: Any, spec: str, width: int = 0, frac: int = 0) -> str:
             """Format an object to spec, with extra width controls."""
-            # Fractions don't support format specs, and it's not obvious
-            # how they'd work.  For now just convert to float.
+            # Fractions don't support format specifiers.
             if spec and isinstance(item, Fraction):
                 item = float(item)
 
             # Simple alignment: numbers right, everything else left.
-            # Use explicit alignment + sufficient width to override.
+            # To override, use a format specifier with explicit column
+            # widths and alignment/fill options.
             text = format(item, spec)
-            if isinstance(item, numbers.Number):
-                text = text.rjust(width)
-            else:
-                text = text.ljust(width)
-            return text
+            return (
+                text.rjust(width)
+                if isinstance(item, numbers.Number)
+                else text.ljust(width)
+            )
 
         def measure(items: Iterable[Any], spec: str) -> int:
-            if not align:  # Use minimum width.
-                return 0
-            width = 0  # Greatest overall width.
-            for item in items:
-                text = column(item, spec)
-                width = max(width, len(text))
-            return width
+            return max(len(column(item, spec)) for item in items) if align else 0
 
         # Normalize weights.
         pmf = self.normalized(0 if wspec and wspec[-1] in "Xbcdnox" else 1)
@@ -212,10 +206,7 @@ class BasePMF(Mapping[_DVT, Probability]):
         # Generate text.
         return tuple(
             separator.join(
-                (
-                    column(value, vspec, vwidth),
-                    column(weight, wspec, wwidth),
-                )
+                (column(value, vspec, vwidth), column(weight, wspec, wwidth))
             )
             for value, weight in pmf.items()
         )
