@@ -2,6 +2,36 @@
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
+__all__ = [
+    "BasePMF",
+    "D",
+    "D00",
+    "D000",
+    "D10",
+    "D100",
+    "D1000",
+    "D12",
+    "D2",
+    "D20",
+    "D3",
+    "D30",
+    "D4",
+    "D6",
+    "D8",
+    "DF",
+    "DicePMF",
+    "DiceTuplePMF",
+    "PMF",
+    "R00",
+    "R000",
+    "RF",
+    "comb",
+    "die_range",
+    "multiset_comb",
+    "multiset_perm",
+    "perm",
+]
+
 import functools
 import itertools
 import math
@@ -10,9 +40,8 @@ from collections import Counter
 from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
 from fractions import Fraction
 from types import MappingProxyType
-from typing import Any, cast, Optional, Self, TypeVar, Union
+from typing import Any, cast, Optional, Self, SupportsIndex, TypeVar, Union
 
-DieRange = Union[int, range]
 DiceValue = Union[int, Fraction]
 Probability = Union[int, Fraction]
 
@@ -109,6 +138,38 @@ class BasePMF(Mapping[_DVT, Probability]):
         """Check input values and convert them as needed."""
         return cast(_DVT, __value)  # Override this!
 
+    @classmethod
+    @functools.cache
+    def die(cls, __faces: Union[int, Sequence[_DVT]] = 6, /) -> Self:
+        """Generate the PMF for rolling one fair die with K faces."""
+        faces: Self
+        match __faces:
+            case BasePMF():
+                faces = cls(__faces)
+            case int():
+                faces = cls({item: 1 for item in die_range(__faces)})
+            case Sequence():
+                faces = cls({item: 1 for item in __faces})
+            case _:
+                raise TypeError(f"not a die: {type(__faces).__name__!r}")
+        return faces
+
+    @classmethod
+    @functools.cache
+    def enumerate_NdX(
+        cls,
+        dice: int,
+        faces: Union[int, Sequence[_DVT]] = 6,
+    ) -> Iterable[tuple[_DVT, ...]]:
+        """Generate all distinct dice pool combinations."""
+        if dice < 1:
+            return ()
+        fpmf = cls.die(faces)
+        # TODO: Should this also calculate pool weights, to handle the
+        # case where faces is a PMF instead of a sequence?
+        # TODO: Enumerate Counter objects instead of sequences?
+        return tuple(itertools.combinations_with_replacement(fpmf, dice))
+
     @property
     def int_weight(self) -> int:
         """Find the minimum total weight to avoid fractional weights."""
@@ -159,6 +220,19 @@ class BasePMF(Mapping[_DVT, Probability]):
         return (
             self if self.__ptotal == __total else type(self)(self, normalize=__total)
         )
+
+    @functools.cached_property
+    def key_index(self) -> Mapping[_DVT, int]:
+        """Create a lookup table for the index method."""
+        keymap = {key: i for i, key in enumerate(self)}
+        return MappingProxyType(keymap)
+
+    def index(self, __key: _DVT, /) -> int:
+        """Return a key's position in the iteration order."""
+        try:
+            return self.key_index[__key]
+        except KeyError:
+            raise ValueError(f"{__key!r} is not in {type(self).__name__}") from None
 
     def tabulate(
         self,
@@ -244,6 +318,9 @@ class BasePMF(Mapping[_DVT, Probability]):
         return len(self.__pweight)
 
 
+DieFaces = Union[int, Sequence[Any]]  # TODO: Any -> Hashable?
+
+
 class PMF(BasePMF[Hashable]):
     """PMF for any Hashable value."""
 
@@ -267,14 +344,6 @@ class DicePMF(BasePMF[DiceValue]):
                 raise TypeError(f"irrational type: {type(__value).__name__!r}")
         return super().validate_value(__value)
 
-    @classmethod
-    @functools.cache
-    def roll_1dK(cls, __sides: DieRange, /) -> Self:
-        """Generate the PMF for rolling one fair die with K sides."""
-        faces = die_range(__sides) if isinstance(__sides, int) else __sides
-        pairs = ((face, 1) for face in faces)
-        return cls(pairs)
-
 
 def die_range(__arg1: int, __arg2: Optional[int] = None, /) -> range:
     """Create a range over the numbered faces of a die.
@@ -282,9 +351,25 @@ def die_range(__arg1: int, __arg2: Optional[int] = None, /) -> range:
     This is a convenience function to make it easier to declare ranges
     matching the faces on dice.  Unlike the standard range function, the
     stop value is inclusive, the default start value is 1, and there is
-    no option to skip values.
+    no option to skip values.  The function infers the step direction
+    from the stop and start values.
     """
-    return range(1, __arg1 + 1) if __arg2 is None else range(__arg1, __arg2 + 1)
+    match __arg1, __arg2:
+        case int() as stop, None:
+            return range(1, stop + 1) if 0 <= stop else range(-stop, 0, -1)
+        case int() as start, int() as stop:
+            step = 1 if start <= stop else -1
+            return range(start, stop + step, step)
+        case SupportsIndex() as start, int() as stop:
+            # Cannot infer direction if start is not an int.
+            return range(start, stop + 1)
+        case SupportsIndex(), fail:
+            pass
+        case fail, _:
+            pass
+    raise TypeError(
+        f"{type(fail).__name__!r} object cannot be interpreted as an integer"
+    )
 
 
 # TODO: allow other Hashable dice values?
@@ -294,14 +379,15 @@ DiceTuple = tuple[int, ...]
 
 
 @functools.cache
-def enumerate_NdK(dice: int, *, sides: DieRange = 6) -> Iterable[DiceTuple]:
-    """Generate all distinct dice pool combinations."""
-    if dice < 1:
-        return ()
-    faces = die_range(sides) if isinstance(sides, int) else sides
-    return (
-        tuple(pool) for pool in itertools.combinations_with_replacement(faces, dice)
-    )
+def comb(__n: int, __k: int, /) -> int:
+    """Cache results from the math.comb function."""
+    return math.comb(__n, __k)
+
+
+@functools.cache
+def multiset_comb(__n: int, __k: int, /) -> int:
+    """Count multiset combinations for k items chosen from n options."""
+    return math.comb(__n + __k - 1, __k)
 
 
 @functools.cache
@@ -322,11 +408,17 @@ def multiset_perm(__iter: Iterable[int], /) -> int:
         return 0
     # Use N! / k[0]! as a starting point to take advantage of
     # optimizations in the math.perm function.
-    weight = math.perm(n, n - k[0])
+    weight = perm(n, n - k[0])
     # Divide the running product by k[n]! for each other subgroup.
     for count in k[1:]:
         weight //= math.factorial(count)
     return weight
+
+
+@functools.cache
+def perm(__n: int, __k: Optional[int] = None, /) -> int:
+    """Cache results from the math.perm function."""
+    return math.perm(__n, __k)
 
 
 @functools.cache
@@ -339,8 +431,9 @@ def pmf_weight(__dice: DiceIterable) -> int:
     (6, 6, 1).  This number is useful for generating PMF weights for
     groups of equivalent dice rolls.  For example:
 
-    {(roll, roll.weight) for roll in enumerate_NdK(dice=dice)}
+    {(roll, roll.weight) for roll in enumerate_NdX(dice=dice)}
     """
+    # TODO: Accept PMFs to handle non-uniform value weights?
     counts = tuple(sorted(Counter(__dice).values()))
     return multiset_perm(counts)
 
@@ -377,31 +470,93 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
 
     @classmethod
     @functools.cache
-    def roll_NdK(cls, dice: int = 1, *, sides: DieRange = 6) -> Self:
-        """Create the PMF for rolling a pool of N dice with K sides."""
-        return cls((p, pmf_weight(p)) for p in enumerate_NdK(dice=dice, sides=sides))
+    def NdX(cls, dice: int = 1, faces: DieFaces = 6) -> Self:
+        """Create the PMF for rolling a pool of N dice with K faces."""
+        enumeration = PMF.enumerate_NdX(dice, faces)
+        return cls((pool, pmf_weight(pool)) for pool in enumeration)
 
     @classmethod
     @functools.cache
-    def roll_NdK_keep(
-        cls, dice: int = 1, *, sides: DieRange = 6, keep: int = 1
+    def NdXselect(
+        cls,
+        dice: int = 1,
+        faces: DieFaces = 6,
+        *,
+        dh: int = 0,
+        dl: int = 0,
+        kh: int = 0,
+        kl: int = 0,
+        km: int = 0,
     ) -> Self:
-        """Create a PMF for NdK, keeping the highest or lowest dice."""
+        """Create a PMF for NdX, keeping the highest N of M dice."""
+        # Validate & initialize parameters.
+        if min(dh, dl, kh, kl, km) < 0:
+            raise ValueError("negative die selector")
+        keep = max(kh, kl, km)
+        if keep != kh + kl + km:
+            raise ValueError("too many keep selectors")
+
+        # Determine the number of dice left after the drop selectors,
+        # then the final number kept after the keep selectors.
+        leave = max(dice - dh - dl, 0)
+        keep = min(keep, leave) if keep else leave
+        if keep <= 0:
+            return cls()
+
+        # Convert the keep selector to the equivalent drop selectors by
+        # adding any extra dice to dl or dh as appropriate.  In the case
+        # of an uneven median, assign the extra drop to the high dice.
+        dx = leave - keep
+        if km:
+            dl += dx // 2
+            dh += (dx + 1) // 2
+        elif kh:
+            dl += dx
+        elif kl:
+            dh += dx
+        print(f"{dx=} {dh=} {dl=}")  # TODO: Remove debug code.
+
+        # Enumerate combinations for the remaining dice and determine
+        # how many ways you can permute each one.
+        fpmf = PMF.die(faces)  # Used to order the die faces.
+        faces = tuple(fpmf)
+        enumeration = PMF.enumerate_NdX(keep, faces)
+        pweight: dict[tuple[Hashable, ...], Probability] = {}
+        for pool in enumeration:
+            lo = pool[0]
+            hi = pool[-1]
+            nlo = fpmf.index(lo) + 1  # type: ignore
+            nhi = len(fpmf) - fpmf.index(hi)  # type:ignore
+            counter = Counter(pool)
+            counts = tuple(sorted(counter.values()))
+            weight = multiset_perm(counts)
+            # TODO: determine how the dl & dh dice contribute to totals.
+            print(f"{pool=} {weight=} {lo=} {hi=} {nlo=} {nhi=} {dl=} {dh=}")
+            pweight[pool] = weight  # TODO
+
+        return cls(pweight)
+
+    @classmethod
+    @functools.cache
+    def roll_NdX_keep(
+        cls, dice: int = 1, faces: DieFaces = 6, *, keep: int = 1
+    ) -> Self:
+        """Create a PMF for NdX, keeping the highest or lowest dice."""
         # Normalize parameters.
         nkeep = min(abs(keep), dice)  # Can't keep more than we roll.
         if nkeep < 1:
             return cls()
-        # Start with the PMF for NdK where N = the number of kept dice.
-        faces = die_range(sides) if isinstance(sides, int) else sides
-        pmf = cls.roll_NdK(nkeep, sides=faces)
+        # Start with the PMF for NdX where N = the number of kept dice.
+        faces = die_range(faces) if isinstance(faces, int) else faces
+        pmf = cls.NdX(nkeep, faces)
         # Merge additional dice with the given filtering rule.
         for _ in range(dice - nkeep):
-            pmf = pmf.merge_die(faces, keep)
+            pmf = pmf.merge_die(faces, keep=keep)
         return cls(pmf)
 
-    def merge_die(self, sides: DieRange = 6, /, keep: int = 0) -> Self:
+    def merge_die(self, faces: DieFaces = 6, *, keep: int = 0) -> Self:
         """Add a die to the tuple, keeping if it passes the filter."""
-        faces = die_range(sides) if isinstance(sides, int) else sides
+        faces = die_range(faces) if isinstance(faces, int) else faces
         pmf: dict[DiceTuple, Probability] = {}
         for pool, pweight in self.pairs.items():
             for face in faces:
@@ -428,8 +583,8 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
         return DicePMF(pmf)
 
 
-# Call D(K) to create the PMF for rolling 1dK.
-D = DicePMF.roll_1dK
+# Call D(K) to create the PMF for rolling 1dX.
+D = DicePMF.die
 
 # Common die sizes.
 D2 = D(2)
