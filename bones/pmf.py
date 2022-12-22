@@ -149,7 +149,7 @@ class BasePMF(Mapping[_DVT, Probability]):
             case int():
                 faces = cls({item: 1 for item in die_range(__faces)})
             case Sequence():
-                faces = cls({item: 1 for item in __faces})
+                faces = cls(Counter(__faces))
             case _:
                 raise TypeError(f"not a die: {type(__faces).__name__!r}")
         return faces
@@ -389,7 +389,7 @@ def multiset_perm(__iter: Iterable[int], /) -> int:
     - N    is the total number of items ∑k[n], and
     - k[n] is the number of items in each equivalence class.
     """
-    k = sorted(__iter)
+    k = sorted(tuple(__iter), reverse=True)
     n = sum(k)
     if not n:
         return 0
@@ -421,7 +421,8 @@ def pmf_weight(__dice: DiceIterable) -> int:
     {(roll, roll.weight) for roll in enumerate_NdX(dice=dice)}
     """
     # TODO: Accept PMFs to handle non-uniform value weights?
-    counts = tuple(sorted(Counter(__dice).values()))
+    # TODO: Remove this?
+    counts = tuple(sorted(Counter(__dice).values(), reverse=True))
     return multiset_perm(counts)
 
 
@@ -505,12 +506,14 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
         # Enumerate combinations for the remaining dice and determine
         # how many ways you can permute each one.
         fpmf = PMF.die(faces)
-        weights = tuple(cast(int, w) for w in fpmf.values())
+        weights = [cast(int, w) for w in fpmf.values()] + [0, 0]
         faces = tuple(fpmf)
         nfaces = len(faces)
         # Symbolic constants outside of range(nfaces), used below.
-        L = -1  # Represents any die lower than the selected dice.
-        H = nfaces  # Likewise, but for higher dice.
+        H = nfaces  # Represents any die higher than the selected dice.
+        L = H + 1  # Likewise, but for lower dice.
+        # TODO: Clean up debug code.
+        # print(f"{dx=} {dh=} {dl=} {weights=}")
 
         # Enumerate the faces by ordinality rather than face value, to
         # preserve the input order and to accommodate non-comparable die
@@ -524,6 +527,11 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
             # How many faces are before low or after high?
             nlow = low
             nhigh = nfaces - 1 - high
+            # What are the total weights of the low and high dice?
+            weights[L] = sum(weights[i] for i in range(nlow))
+            weights[H] = sum(weights[nfaces - 1 - i] for i in range(nhigh))
+            # print(f"{low=} {nlow=} {high=} {nhigh=} {weights=}")
+
             # Calculate all of the combinations of _unselected_ dice.
             # Example: If we are calculating 6d6kh3, and the selected
             # dice are (1, 2, 3), there's only one possible combination
@@ -558,61 +566,28 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
                     counter[low] += dl - i
                     counter[high] += dh - j
                     # Count multiset permutations.
-                    counts = tuple(sorted(counter.values()))
-                    cweight = multiset_perm(counts) * nlow**i * nhigh**j
-                    weight += cweight
+                    counts = tuple(sorted(counter.values(), reverse=True))
+                    cperm = multiset_perm(counts)
+                    # cweight = math.prod(weights[k] ** n for k, n in counter.items())
+                    cweight = math.prod(weights[k] for k in counter.elements())
+                    # print(f"{ipool=} {i=} {j=} {cperm=} {cweight=}")
+                    # print(tuple(counter.elements()))
+                    weight += cweight * cperm
 
             # Translate ordinals to face values and base weights.
             vpool = tuple(faces[p] for p in ipool)
-            wpool = math.prod(weights[p] for p in ipool)
-            pweight[vpool] = weight * wpool
+            pweight[vpool] = weight
+            # print(f"{ipool=} {vpool=} {weight=} {low=} {high=} {dl=} {dh=}")
         return cls(pweight)
 
-    @classmethod
-    @functools.cache
-    def roll_NdX_keep(
-        cls, dice: int = 1, faces: DieFaces = 6, *, keep: int = 1
-    ) -> Self:
-        """Create a PMF for NdX, keeping the highest or lowest dice."""
-        # Normalize parameters.
-        nkeep = min(abs(keep), dice)  # Can't keep more than we roll.
-        if nkeep < 1:
-            return cls()
-        # Start with the PMF for NdX where N = the number of kept dice.
-        faces = die_range(faces) if isinstance(faces, int) else faces
-        pmf = cls.NdX(nkeep, faces)
-        # Merge additional dice with the given filtering rule.
-        for _ in range(dice - nkeep):
-            pmf = pmf.merge_die(faces, keep=keep)
-        return cls(pmf)
-
-    def merge_die(self, faces: DieFaces = 6, *, keep: int = 0) -> Self:
-        """Add a die to the tuple, keeping if it passes the filter."""
-        faces = die_range(faces) if isinstance(faces, int) else faces
-        pmf: dict[DiceTuple, Probability] = {}
-        for pool, pweight in self.pairs.items():
-            for face in faces:
-                # Add the new die to the tuple, then remove the highest
-                # or lowest die if keep is nonzero.
-                mlist = sorted(pool + (face,))
-                if 0 < keep:  # Drop lowest.
-                    mlist = mlist[1:]
-                elif keep < 0:  # Drop highest.
-                    mlist = mlist[:-1]
-                mpool = DiceTuple(mlist)
-                # Record the weight for the new tuple.
-                pmf.setdefault(mpool, 0)
-                pmf[mpool] += pweight
-        return type(self)(pmf)
-
-    def sum_pools(self) -> DicePMF:
-        """Sum the pools and return the resulting DicePMF."""
+    def sum_pools(self) -> PMF:
+        """Sum the pools and return the resulting PMF."""
         pmf: dict[int, Probability] = {}
         for pool, count in self.pairs.items():
             total = sum(tuple(pool))
             pmf.setdefault(total, 0)
             pmf[total] += count
-        return DicePMF(pmf)
+        return PMF(pmf)
 
 
 # Call D(K) to create the PMF for rolling 1dX.
