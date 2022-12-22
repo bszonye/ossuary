@@ -42,13 +42,15 @@ from fractions import Fraction
 from types import MappingProxyType
 from typing import Any, cast, Optional, Self, SupportsIndex, TypeAlias, TypeVar
 
-DiceValue = int | Fraction  # TODO: remove this?
-
 # PMF input types.
+# TODO: Rename these to EventT and WeightT?
+# TODO: Export the type vars in __all__?
+# TODO: Remove Fraction (requires normalization rework).
 ET = TypeVar("ET", bound=Hashable)  # Event type.
-WT: TypeAlias = int | Fraction  # TODO: remove Fraction weights.
-PairSpec = tuple[ET, WT]
-MappingSpec = Mapping[ET, WT]
+WT: TypeAlias = int | Fraction
+PairSpec: TypeAlias = tuple[ET, WT]
+MappingSpec: TypeAlias = Mapping[ET, WT]
+DiceValue: TypeAlias = int | Fraction  # TODO: remove this one?
 
 
 class BasePMF(Mapping[ET, WT]):
