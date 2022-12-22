@@ -1,5 +1,5 @@
 import fractions
-from typing import Any, Callable, Union
+from typing import Any, Callable
 
 from .alea import Alea
 from .tlea import Tlea
@@ -33,6 +33,6 @@ from .tlea import Tlea
 
 _lea_leaf_classes = (Alea, Olea, Plea)
 
-def P(lea1: Lea) -> Union[float, fractions.Fraction]: ...
+def P(lea1: Lea) -> float | fractions.Fraction: ...
 def Pf(lea1: Lea) -> float: ...
 def __getattr__(name: str) -> Any: ...  # incomplete

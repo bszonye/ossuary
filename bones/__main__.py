@@ -12,12 +12,11 @@ __all__ = ["plot_demo", "profile_demo", "main"]
 
 import sys
 from fractions import Fraction
-from typing import Union
 
 import lea
 from lea.leaf import dice
 
-Randomizable = Union[int, lea.Lea]
+Randomizable = int | lea.Lea
 
 lea.set_prob_type("r")
 

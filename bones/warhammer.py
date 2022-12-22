@@ -30,15 +30,15 @@ import tomllib
 import unicodedata
 from collections.abc import Collection, Hashable, Iterator, Mapping
 from dataclasses import dataclass, Field, fields, InitVar
-from typing import Any, BinaryIO, Optional, overload, Self, Union
+from typing import Any, BinaryIO, Optional, overload, Self
 
 from .pmf import BasePMF, DicePMF
 
 # Type definitions.
 NameMapping = Mapping[str, Any]
-NumericSpec = Union[int, float]
-RandomSpec = Union[str, DicePMF]  # e.g. "1d6" or PMF
-ValueSpec = Union[NumericSpec, RandomSpec]
+NumericSpec = int | float
+RandomSpec = str | DicePMF  # e.g. "1d6" or PMF
+ValueSpec = NumericSpec | RandomSpec
 
 
 class Characteristic:

@@ -1,8 +1,8 @@
-from typing import Any, Iterable, Sequence, Union
+from typing import Any, Iterable, Sequence
 
 from .lea import Lea
 
-_mapping = Union[dict[Any, Any], Iterable[tuple[Any, Any]]]
+_mapping = dict[Any, Any] | Iterable[tuple[Any, Any]]
 
 class Alea(Lea):
     @staticmethod

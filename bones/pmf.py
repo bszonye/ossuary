@@ -40,10 +40,10 @@ from collections import Counter
 from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
 from fractions import Fraction
 from types import MappingProxyType
-from typing import Any, cast, Optional, Self, SupportsIndex, TypeVar, Union
+from typing import Any, cast, Optional, Self, SupportsIndex, TypeVar
 
-DiceValue = Union[int, Fraction]
-Probability = Union[int, Fraction]
+DiceValue = int | Fraction
+Probability = int | Fraction
 
 # PMF input types.
 _DVT = TypeVar("_DVT", bound=Hashable)
@@ -59,7 +59,7 @@ class BasePMF(Mapping[_DVT, Probability]):
 
     def __init__(
         self,
-        __items: Union[MappingSpec[Any], Iterable[PairSpec[Any]]] = (),
+        __items: MappingSpec[Any] | Iterable[PairSpec[Any]] = (),
         /,
         *,
         normalize: Probability = 0,
@@ -140,7 +140,7 @@ class BasePMF(Mapping[_DVT, Probability]):
 
     @classmethod
     @functools.cache
-    def die(cls, __faces: Union[int, Sequence[_DVT]] = 6, /) -> Self:
+    def die(cls, __faces: int | Sequence[_DVT] = 6, /) -> Self:
         """Generate the PMF for rolling one fair die with K faces."""
         faces: Self
         match __faces:
@@ -157,9 +157,7 @@ class BasePMF(Mapping[_DVT, Probability]):
     @classmethod
     @functools.cache
     def enumerate_NdX(
-        cls,
-        dice: int,
-        faces: Union[int, Sequence[_DVT]] = 6,
+        cls, dice: int, faces: int | Sequence[_DVT] = 6
     ) -> Iterable[tuple[_DVT, ...]]:
         """Generate all distinct dice pool combinations."""
         if dice < 1:
@@ -305,7 +303,7 @@ class BasePMF(Mapping[_DVT, Probability]):
         return len(self.__pweight)
 
 
-DieFaces = Union[int, Sequence[Any]]  # TODO: Any -> Hashable?
+DieFaces = int | Sequence[Any]  # TODO: Any -> Hashable?
 
 
 class PMF(BasePMF[Hashable]):
