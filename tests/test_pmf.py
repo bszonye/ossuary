@@ -10,7 +10,7 @@ from typing import Any, cast
 
 import pytest
 
-from bones.pmf import PMF, Probability
+from bones.pmf import PMF, WT
 
 
 class TestPMFInit:
@@ -151,9 +151,7 @@ class TestPMFIntWeight:
     """Test the PMF.int_weight method."""
 
     @pytest.mark.parametrize("weights, int_weight", weights.items())
-    def test_pmf_int_weight(
-        self, weights: Sequence[Probability], int_weight: int
-    ) -> None:
+    def test_pmf_int_weight(self, weights: Sequence[WT], int_weight: int) -> None:
         """Test various weight distributions."""
         items = {i: weights[i] for i in range(len(weights))}
         pmf = PMF(items)
@@ -164,9 +162,7 @@ class TestPMFNormalized:
     """Test the PMF.normalized method."""
 
     @pytest.mark.parametrize("weights, int_weight", weights.items())
-    def test_normalized_default(
-        self, weights: Sequence[Probability], int_weight: int
-    ) -> None:
+    def test_normalized_default(self, weights: Sequence[WT], int_weight: int) -> None:
         """Test the default parameters with various item weights."""
         items = {i: weights[i] for i in range(len(weights))}
         pmf = PMF(items)

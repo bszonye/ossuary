@@ -40,29 +40,29 @@ from collections import Counter
 from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
 from fractions import Fraction
 from types import MappingProxyType
-from typing import Any, cast, Optional, Self, SupportsIndex, TypeVar
+from typing import Any, cast, Optional, Self, SupportsIndex, TypeAlias, TypeVar
 
-DiceValue = int | Fraction
-Probability = int | Fraction
+DiceValue = int | Fraction  # TODO: remove this?
 
 # PMF input types.
-_DVT = TypeVar("_DVT", bound=Hashable)
-PairSpec = tuple[_DVT, Probability]
-MappingSpec = Mapping[_DVT, Probability]
+ET = TypeVar("ET", bound=Hashable)  # Event type.
+WT: TypeAlias = int | Fraction  # TODO: remove Fraction weights.
+PairSpec = tuple[ET, WT]
+MappingSpec = Mapping[ET, WT]
 
 
-class BasePMF(Mapping[_DVT, Probability]):
+class BasePMF(Mapping[ET, WT]):
     """Generic base class for finite probability mass functions."""
 
-    __pweight: Mapping[_DVT, Probability]
-    __ptotal: Probability
+    __pweight: Mapping[ET, WT]
+    __ptotal: WT
 
     def __init__(
         self,
         __items: MappingSpec[Any] | Iterable[PairSpec[Any]] = (),
         /,
         *,
-        normalize: Probability = 0,
+        normalize: WT = 0,
     ) -> None:
         """Initialize PMF object."""
         if normalize < 0:  # Reserve negative sizes for future expansion.
@@ -72,7 +72,7 @@ class BasePMF(Mapping[_DVT, Probability]):
         match __items:
             case BasePMF() if not normalize and type(__items) is type(self):
                 # Copy another PMF of the same type.
-                copy = cast(BasePMF[_DVT], __items)
+                copy = cast(BasePMF[ET], __items)
                 self.__pweight = copy.__pweight
                 self.__ptotal = copy.__ptotal
                 return
@@ -86,8 +86,8 @@ class BasePMF(Mapping[_DVT, Probability]):
             case _:
                 raise TypeError(f"not iterable: {type(__items).__name__!r}")
         # Collect value weights.
-        pweight: dict[_DVT, Probability] = {}  # Probability weights.
-        rweight: dict[_DVT, Probability] = {}  # Remainder weights.
+        pweight: dict[ET, WT] = {}  # Probability weights.
+        rweight: dict[ET, WT] = {}  # Remainder weights.
         for item in items:
             match item:  # Check input structure.
                 case [xvalue, int() | Fraction() as weight]:
@@ -106,16 +106,16 @@ class BasePMF(Mapping[_DVT, Probability]):
             pweight.setdefault(value, 0)
             pweight[value] += weight
         # Determine the normalized weight and remainder.
-        ptotal: Probability = sum(pweight.values())
-        rtotal: Probability = sum(rweight.values())
+        ptotal: WT = sum(pweight.values())
+        rtotal: WT = sum(rweight.values())
         if not normalize:
             normalize = ptotal or 1  # Ensure a nonzero denominator.
-        remainder: Probability = normalize - ptotal
+        remainder: WT = normalize - ptotal
         # Distribute the remainder, if there are any flex weights.
         if remainder and rtotal:
             scale = Fraction(remainder, rtotal)
             for v, w in rweight.items():
-                rpw: Probability = scale * w
+                rpw: WT = scale * w
                 pweight[v] += rpw
             ptotal = sum(pweight.values())
         # Scale weights to the normalized total.
@@ -134,13 +134,13 @@ class BasePMF(Mapping[_DVT, Probability]):
         self.__ptotal = ptotal or normalize
 
     @classmethod
-    def validate_value(cls, __value: Hashable, /) -> _DVT:
+    def validate_value(cls, __value: Hashable, /) -> ET:
         """Check input values and convert them as needed."""
-        return cast(_DVT, __value)  # Override this!
+        return cast(ET, __value)  # Override this!
 
     @classmethod
     @functools.cache
-    def die(cls, __faces: int | Sequence[_DVT] = 6, /) -> Self:
+    def die(cls, __faces: int | Sequence[ET] = 6, /) -> Self:
         """Generate the PMF for rolling one fair die with K faces."""
         faces: Self
         match __faces:
@@ -157,8 +157,8 @@ class BasePMF(Mapping[_DVT, Probability]):
     @classmethod
     @functools.cache
     def enumerate_NdX(
-        cls, dice: int, faces: int | Sequence[_DVT] = 6
-    ) -> Iterable[tuple[_DVT, ...]]:
+        cls, dice: int, faces: int | Sequence[ET] = 6
+    ) -> Iterable[tuple[ET, ...]]:
         """Generate all distinct dice pool combinations."""
         if dice < 1:
             return ()
@@ -182,7 +182,7 @@ class BasePMF(Mapping[_DVT, Probability]):
         lcm = math.lcm(*fracs)
 
         # Resize based on the gcd (if integers) or lcm (if fractions).
-        size: Probability
+        size: WT
         if lcm == 1:
             nums = [w.numerator for w in weights]
             gcd = math.gcd(*nums)
@@ -195,21 +195,32 @@ class BasePMF(Mapping[_DVT, Probability]):
         return size.numerator
 
     @property
-    def total_weight(self) -> Probability:
+    def total_weight(self) -> WT:
         """Provide read-only access to the total probability."""
         return self.__ptotal
 
     @property
-    def pairs(self) -> MappingSpec[_DVT]:
+    def pairs(self) -> MappingSpec[ET]:
         """Provide read-only access to the probability mapping."""
+        # TODO: Return a Sequence instead of a MappingView?
         return self.__pweight
 
+    @property  # TODO: cache the tuple?
+    def events(self) -> Sequence[ET]:
+        """Return all events defined for the PMF."""
+        return tuple(self.keys())
+
     @property
-    def support(self) -> Sequence[_DVT]:
-        """Return all of the values with nonzero probability."""
+    def support(self) -> Sequence[ET]:
+        """Return all events with non-zero weight."""
         return tuple(v for v, p in self.__pweight.items() if p)
 
-    def normalized(self, __total: Probability = 0, /) -> Self:
+    @property  # TODO: cache the tuple?
+    def weights(self) -> Sequence[ET]:
+        """Return all event weights defined for the PMF."""
+        return tuple(self.keys())
+
+    def normalized(self, __total: WT = 0, /) -> Self:
         """Normalize to a given total weight and return the result."""
         if __total < 0:  # Reserve negative sizes for future expansion.
             raise ValueError(f"total weight {__total} < 0")
@@ -290,11 +301,11 @@ class BasePMF(Mapping[_DVT, Probability]):
         """Format the PMF for printing."""
         return self.__format__("")
 
-    def __getitem__(self, key: _DVT) -> Probability:
+    def __getitem__(self, key: ET) -> WT:
         """Return the probability for a given value."""
         return self.__pweight[key]
 
-    def __iter__(self) -> Iterator[_DVT]:
+    def __iter__(self) -> Iterator[ET]:
         """Iterate over the discrete values."""
         return iter(self.__pweight)
 
@@ -517,7 +528,7 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
         # preserve the input order and to accommodate non-comparable die
         # values.  For example, this enumerates three six-sided dice
         # numerically from (0, 0, 0) to (5, 5, 5).
-        pweight: dict[Sequence[Hashable], Probability] = {}
+        pweight: dict[Sequence[Hashable], WT] = {}
         for ipool in itertools.combinations_with_replacement(range(nfaces), keep):
             # Get the range of face numbers.
             low = ipool[0]
@@ -580,7 +591,7 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
 
     def sum_pools(self) -> PMF:
         """Sum the pools and return the resulting PMF."""
-        pmf: dict[int, Probability] = {}
+        pmf: dict[int, WT] = {}
         for pool, count in self.pairs.items():
             total = sum(tuple(pool))
             pmf.setdefault(total, 0)

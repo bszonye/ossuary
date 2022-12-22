@@ -5,7 +5,7 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 import pytest
 
 import bones.pmf
-from bones.pmf import D, DicePMF, DiceValue, die_range, Probability
+from bones.pmf import D, DicePMF, DiceValue, die_range, WT
 
 
 class TestDicePMFInit:
@@ -18,14 +18,14 @@ class TestDicePMFInit:
 
     def test_pmf_int(self) -> None:
         """Test with default arguments."""
-        items: dict[DiceValue, Probability] = {0: 1}
+        items: dict[DiceValue, WT] = {0: 1}
         pmf = DicePMF(items)
         assert len(pmf) == 1
         assert pmf[0] == 1
 
     def test_pmf_copy(self) -> None:
         """Test copying another DicePMF."""
-        items: dict[DiceValue, Probability] = {0: 1}
+        items: dict[DiceValue, WT] = {0: 1}
         pmf1 = DicePMF(items)
         pmf2 = DicePMF(pmf1)
         assert pmf1.pairs == pmf2.pairs

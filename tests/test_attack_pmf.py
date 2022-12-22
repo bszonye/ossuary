@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from bones.pmf import Probability
+from bones.pmf import WT
 from bones.warhammer import AttackCounter, AttackPMF
 
 
@@ -37,7 +37,7 @@ class TestAttackPMFInit:
         counter1 = AttackCounter(1)
         counter2 = AttackCounter(2)
         counter3 = AttackCounter(3)
-        pmap: dict[AttackCounter, Probability] = {
+        pmap: dict[AttackCounter, WT] = {
             counter1: 1,
             counter2: Fraction(2),
             counter3: Fraction(3, 1),
@@ -54,7 +54,7 @@ class TestAttackPMFInit:
         counter1 = AttackCounter(1)
         counter2 = AttackCounter(2)
         counter3 = AttackCounter(2)
-        pmap: dict[AttackCounter, Probability] = {
+        pmap: dict[AttackCounter, WT] = {
             counter1: 1,
             counter2: Fraction(2),
             counter3: Fraction(3, 1),
