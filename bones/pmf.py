@@ -221,19 +221,6 @@ class BasePMF(Mapping[_DVT, Probability]):
             self if self.__ptotal == __total else type(self)(self, normalize=__total)
         )
 
-    @functools.cached_property
-    def key_index(self) -> Mapping[_DVT, int]:
-        """Create a lookup table for the index method."""
-        keymap = {key: i for i, key in enumerate(self)}
-        return MappingProxyType(keymap)
-
-    def index(self, __key: _DVT, /) -> int:
-        """Return a key's position in the iteration order."""
-        try:
-            return self.key_index[__key]
-        except KeyError:
-            raise ValueError(f"{__key!r} is not in {type(self).__name__}") from None
-
     def tabulate(
         self,
         __spec: str = "",
@@ -477,7 +464,7 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
 
     @classmethod
     @functools.cache
-    def NdXselect(
+    def NdX_select(
         cls,
         dice: int = 1,
         faces: DieFaces = 6,
@@ -514,26 +501,71 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
             dl += dx
         elif kl:
             dh += dx
-        print(f"{dx=} {dh=} {dl=}")  # TODO: Remove debug code.
 
         # Enumerate combinations for the remaining dice and determine
         # how many ways you can permute each one.
-        fpmf = PMF.die(faces)  # Used to order the die faces.
+        fpmf = PMF.die(faces)
+        weights = tuple(cast(int, w) for w in fpmf.values())
         faces = tuple(fpmf)
-        enumeration = PMF.enumerate_NdX(keep, faces)
-        pweight: dict[tuple[Hashable, ...], Probability] = {}
-        for pool in enumeration:
-            lo = pool[0]
-            hi = pool[-1]
-            nlo = fpmf.index(lo) + 1  # type: ignore
-            nhi = len(fpmf) - fpmf.index(hi)  # type:ignore
-            counter = Counter(pool)
-            counts = tuple(sorted(counter.values()))
-            weight = multiset_perm(counts)
-            # TODO: determine how the dl & dh dice contribute to totals.
-            print(f"{pool=} {weight=} {lo=} {hi=} {nlo=} {nhi=} {dl=} {dh=}")
-            pweight[pool] = weight  # TODO
+        nfaces = len(faces)
+        # Symbolic constants outside of range(nfaces), used below.
+        L = -1  # Represents any die lower than the selected dice.
+        H = nfaces  # Likewise, but for higher dice.
 
+        # Enumerate the faces by ordinality rather than face value, to
+        # preserve the input order and to accommodate non-comparable die
+        # values.  For example, this enumerates three six-sided dice
+        # numerically from (0, 0, 0) to (5, 5, 5).
+        pweight: dict[Sequence[Hashable], Probability] = {}
+        for ipool in itertools.combinations_with_replacement(range(nfaces), keep):
+            # Get the range of face numbers.
+            low = ipool[0]
+            high = ipool[-1]
+            # How many faces are before low or after high?
+            nlow = low
+            nhigh = nfaces - 1 - high
+            # Calculate all of the combinations of _unselected_ dice.
+            # Example: If we are calculating 6d6kh3, and the selected
+            # dice are (1, 2, 3), there's only one possible combination
+            # of the lower dice:
+            #
+            # * (1, 1, 1, 1, 2, 3)
+            #
+            # However, if the selected dice are (4, 5, 6), then there
+            # are many possible combinations of the lower dice:
+            #
+            # * (L, L, L, 4, 5, 6)
+            # * (L, L, 4, 4, 5, 6)
+            # * (L, 4, 4, 4, 5, 6)
+            # * (4, 4, 4, 4, 5, 6)
+            #
+            # Each L represents (nlow == 3) possible faces that we don't
+            # need to enumerate explicitly.  Instead, we can multiply
+            # the weight by nlow for each L in the combination.
+            #
+            # We can count the highest dice in a keep-low/drop-high dice
+            # in the same way, by replacing all of the highest values
+            # with the symbol H and counting each one nhigh times.
+            base_counter = Counter(ipool)
+            weight = 0
+            low_range = range(1 + (dl if nlow else 0))
+            high_range = range(1 + (dh if nhigh else 0))
+            for i in low_range:
+                for j in high_range:
+                    counter = base_counter.copy()
+                    counter[L] = i
+                    counter[H] = j
+                    counter[low] += dl - i
+                    counter[high] += dh - j
+                    # Count multiset permutations.
+                    counts = tuple(sorted(counter.values()))
+                    cweight = multiset_perm(counts) * nlow**i * nhigh**j
+                    weight += cweight
+
+            # Translate ordinals to face values and base weights.
+            vpool = tuple(faces[p] for p in ipool)
+            wpool = math.prod(weights[p] for p in ipool)
+            pweight[vpool] = weight * wpool
         return cls(pweight)
 
     @classmethod
