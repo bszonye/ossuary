@@ -23,14 +23,14 @@ class TestAttackPMFInit:
         """Test copying another AttackPMF."""
         pmf1 = AttackPMF()
         pmf2 = AttackPMF(pmf1)
-        assert pmf1.pairs == pmf2.pairs
+        assert pmf1.mapping == pmf2.mapping
         assert pmf1.total_weight == pmf2.total_weight
 
     def test_attack_int(self) -> None:
         """Test with integer arguments."""
         pmf = AttackPMF({3: 1})
         assert len(pmf) == 1
-        assert pmf.pairs == {AttackCounter(3): 1}
+        assert pmf.mapping == {AttackCounter(3): 1}
 
     def test_attack_iterable(self) -> None:
         """Test a PMF with more than one value."""

@@ -28,7 +28,7 @@ class TestDicePMFInit:
         items: dict[DiceValue, WT] = {0: 1}
         pmf1 = DicePMF(items)
         pmf2 = DicePMF(pmf1)
-        assert pmf1.pairs == pmf2.pairs
+        assert pmf1.mapping == pmf2.mapping
         assert pmf1.total_weight == pmf2.total_weight
 
     # The module should provide prebuilt dice objects for all of these.
@@ -45,7 +45,7 @@ class TestDicePMFInit:
         attr = f"D{size}"
         mdie = getattr(bones.pmf, attr)
         assert isinstance(mdie, DicePMF)
-        assert die.pairs is mdie.pairs
+        assert die.mapping is mdie.mapping
         # Test the PMF properties.
         assert len(die) == size
         for v, p in die.items():
@@ -68,6 +68,6 @@ class TestDicePMFInit:
         assert D000.support == tuple(r000)
         assert DF.support == tuple(rF) == (-1, 0, +1)
         # Verify "is" equivalence to the D function for special dice.
-        assert D00.pairs is D(r00).pairs
-        assert D000.pairs is D(r000).pairs
-        assert DF.pairs is D(rF).pairs
+        assert D00.mapping is D(r00).mapping
+        assert D000.mapping is D(r000).mapping
+        assert DF.mapping is D(rF).mapping

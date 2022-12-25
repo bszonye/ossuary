@@ -202,22 +202,28 @@ class BasePMF(Mapping[ET, WT]):
         return self.__ptotal
 
     @property
-    def pairs(self) -> MappingSpec[ET]:
+    def mapping(self) -> MappingSpec[ET]:
         """Provide read-only access to the probability mapping."""
         # TODO: Return a Sequence instead of a MappingView?
         return self.__pweight
 
-    @property  # TODO: cache the tuple?
-    def events(self) -> Sequence[ET]:
-        """Return all events defined for the PMF."""
+    @property  # TODO: functools.cached_property?
+    def pairs(self) -> Sequence[tuple[ET, WT]]:
+        """Provide read-only access to the probability mapping."""
+        # TODO: Return a Sequence instead of a MappingView?
+        return tuple(self.__pweight.items())
+
+    @property  # TODO: functools.cached_property?
+    def domain(self) -> Sequence[ET]:
+        """Return all events (mapping keys) defined for the PMF."""
         return tuple(self.keys())
 
-    @property
+    @property  # TODO: functools.cached_property?
     def support(self) -> Sequence[ET]:
         """Return all events with non-zero weight."""
         return tuple(v for v, p in self.__pweight.items() if p)
 
-    @property  # TODO: cache the tuple?
+    @property  # TODO: functools.cached_property?
     def weights(self) -> Sequence[ET]:
         """Return all event weights defined for the PMF."""
         return tuple(self.keys())
@@ -594,7 +600,7 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
     def sum_pools(self) -> PMF:
         """Sum the pools and return the resulting PMF."""
         pmf: dict[int, WT] = {}
-        for pool, count in self.pairs.items():
+        for pool, count in self.mapping.items():
             total = sum(tuple(pool))
             pmf.setdefault(total, 0)
             pmf[total] += count

@@ -20,7 +20,8 @@ class TestPMFInit:
         """Test with default arguments."""
         pmf = PMF()
         assert len(pmf) == 0
-        assert pmf.pairs == {}
+        assert pmf.mapping == {}
+        assert pmf.pairs == ()
         assert pmf.total_weight == 1
 
     def test_pmf_copy(self) -> None:
@@ -28,7 +29,7 @@ class TestPMFInit:
         items = {0: 1}
         pmf1 = PMF(items)
         pmf2 = PMF(pmf1)
-        assert pmf1.pairs is pmf2.pairs
+        assert pmf1.mapping is pmf2.mapping
         assert pmf1.total_weight is pmf2.total_weight
 
     def test_pmf_dict(self) -> None:
@@ -36,7 +37,7 @@ class TestPMFInit:
         items = {0: 1, 3: 2, 7: 1}
         pmf = PMF(items)
         assert len(pmf) == len(items)
-        assert pmf.pairs == items
+        assert pmf.mapping == items
 
     def test_pmf_counter(self) -> None:
         """Test initialization from a Counter."""
@@ -44,35 +45,36 @@ class TestPMFInit:
         counter = Counter(items)
         pmf = PMF(counter)
         assert len(pmf) == len(counter)
-        assert pmf.pairs == {1: 3, 2: 2, 3: 1}
+        assert pmf.mapping == {1: 3, 2: 2, 3: 1}
 
     def test_pmf_iterable(self) -> None:
         """Test initialization from a Counter."""
         items = ((1, 3), (2, 2), (3, 1))
         pmf = PMF(items)
         assert len(pmf) == len(items)
-        assert pmf.pairs == {1: 3, 2: 2, 3: 1}
+        assert pmf.mapping == {1: 3, 2: 2, 3: 1}
+        assert pmf.pairs == items
 
     def test_pmf_remainder(self) -> None:
         """Test remainder normalization."""
         items = {1: 3, 2: -1, 3: 1}
         pmf = PMF(items, normalize=6)
         assert len(pmf) == len(items)
-        assert pmf.pairs == {1: 3, 2: 2, 3: 1}
+        assert pmf.mapping == {1: 3, 2: 2, 3: 1}
 
     def test_pmf_remainder_share(self) -> None:
         """Test remainder normalization."""
         items = {1: 3, 2: -2, 3: -1}
         pmf = PMF(items, normalize=9)
         assert len(pmf) == len(items)
-        assert pmf.pairs == {1: 3, 2: 4, 3: 2}
+        assert pmf.mapping == {1: 3, 2: 4, 3: 2}
 
     def test_pmf_pzero(self) -> None:
         """Test a PMF with a zero probability."""
         items = {1: 3, 2: 0, 3: 1}
         pmf = PMF(items)
         assert len(pmf) == len(items)
-        assert pmf.pairs == items
+        assert pmf.mapping == items
         assert pmf.support == (1, 3)
 
     def test_pmf_normalize_100(self) -> None:
@@ -80,7 +82,7 @@ class TestPMFInit:
         items = {1: 4, 2: 3, 3: 2, 4: 1}
         pmf = PMF(items, normalize=100)
         assert len(pmf) == len(items)
-        assert pmf.pairs == {1: 40, 2: 30, 3: 20, 4: 10}
+        assert pmf.mapping == {1: 40, 2: 30, 3: 20, 4: 10}
         for p in pmf.values():  # no fractions!
             assert isinstance(p, int)
 
@@ -186,11 +188,11 @@ class TestPMFNormalized:
         """Test a PMF normalized to 1."""
         items = {1: 4, 2: 3, 3: 2, 4: 1}
         pmf = PMF(items)
-        assert pmf.pairs == {1: 4, 2: 3, 3: 2, 4: 1}
+        assert pmf.mapping == {1: 4, 2: 3, 3: 2, 4: 1}
 
         npmf = pmf.normalized(1)
         assert npmf.total_weight == 1
-        assert npmf.pairs == {
+        assert npmf.mapping == {
             1: Fraction(2, 5),
             2: Fraction(3, 10),
             3: Fraction(1, 5),
@@ -203,10 +205,10 @@ class TestPMFNormalized:
         """Test a PMF normalized to 100."""
         items = {1: 4, 2: 3, 3: 2, 4: 1}
         pmf = PMF(items)
-        assert pmf.pairs == {1: 4, 2: 3, 3: 2, 4: 1}
+        assert pmf.mapping == {1: 4, 2: 3, 3: 2, 4: 1}
 
         npmf = pmf.normalized(100)
-        assert npmf.pairs == {1: 40, 2: 30, 3: 20, 4: 10}
+        assert npmf.mapping == {1: 40, 2: 30, 3: 20, 4: 10}
         for p in npmf.values():  # no fractions!
             assert isinstance(p, int)
 
