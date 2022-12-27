@@ -19,7 +19,6 @@ __all__ = [
     "D6",
     "D8",
     "DF",
-    "DicePMF",
     "DiceTuplePMF",
     "PMF",
     "R00",
@@ -37,7 +36,15 @@ import itertools
 import math
 import numbers
 from collections import Counter
-from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import (
+    Collection,
+    Hashable,
+    ItemsView,
+    Iterable,
+    Iterator,
+    Mapping,
+    Sequence,
+)
 from fractions import Fraction
 from types import MappingProxyType
 from typing import Any, cast, Optional, Self, SupportsIndex, TypeAlias, TypeVar
@@ -46,103 +53,103 @@ from typing import Any, cast, Optional, Self, SupportsIndex, TypeAlias, TypeVar
 # TODO: Rename these to EventT and WeightT?
 # TODO: Export the type vars in __all__?
 # TODO: Remove Fraction (requires normalization rework).
-ET = TypeVar("ET", bound=Hashable)  # Event type.
-WT: TypeAlias = int | Fraction
-PairSpec: TypeAlias = tuple[ET, WT]
-MappingSpec: TypeAlias = Mapping[ET, WT]
-DiceValue: TypeAlias = int | Fraction  # TODO: remove this one?
+ET_co = TypeVar("ET_co", bound=Hashable)  # Event type.
+WT: TypeAlias = int  # Weight type.
 
 
-class BasePMF(Mapping[ET, WT]):
-    """Generic base class for finite probability mass functions."""
+class BasePMF(Collection[ET_co]):
+    """Generic base class for probability mass functions.
 
-    __pweight: Mapping[ET, WT]
-    __ptotal: WT
+    A probability mass function (PMF) associates probabilities with
+    events in a discrete probability space.
+
+    Probability spaces model randomness as a triplet (Ω, Σ, P):
+
+    * Ω, the sample space, which is the set of all outcomes.
+    * Σ, the event space, which groups sets of outcomes for analysis.
+    * P, a function that associates a probability with every event.
+
+    Outcomes are the specific results of a random process, and events
+    are sets of outcomes grouped for analysis.  For example, given a
+    deck of 52 cards, a single card draw has 52 possible outcomes.
+    Events can include one outcome ("draw the queen of hearts") or many
+    ("draw any odd-numbered card").  The singletons are called
+    elementary events, and they're often used interchangeably with the
+    corresponding outcome.
+
+    Probability functions assign probabilities to events, and a PMF
+    typically maps all of the elementary events in the event space.  For
+    example, the PMF for a coin flip is {heads: 1/2, tails: 1/2}.
+
+    This class represents probability as int weights instead of floats
+    or Fractions.  To convert to the usual [0, 1] range for probability,
+    divide by the total property, or use the "mass" methods instead of
+    "weight" methods.
+    """
+
+    __weights: Mapping[ET_co, WT]
+    __total: WT
 
     def __init__(
         self,
-        __items: MappingSpec[Any] | Iterable[PairSpec[Any]] = (),
+        __events: Mapping[Any, WT] | Iterable[Any] = (),
         /,
         *,
-        normalize: WT = 0,
+        normalize: bool = True,
     ) -> None:
         """Initialize PMF object."""
-        if normalize < 0:  # Reserve negative sizes for future expansion.
-            raise ValueError(f"{normalize=} < 0")
         # Convert input mapping or iterable to a list of pairs.
-        items: list[PairSpec[Any]]
-        match __items:
-            case BasePMF() if not normalize and type(__items) is type(self):
+        pairs: Iterable[tuple[Any, WT]]
+        match __events:
+            case BasePMF() if type(__events) is type(self):
                 # Copy another PMF of the same type.
-                copy = cast(BasePMF[ET], __items)
-                self.__pweight = copy.__pweight
-                self.__ptotal = copy.__ptotal
+                copy = cast(BasePMF[ET_co], __events)
+                if normalize:
+                    copy = copy.normalized()
+                self.__weights = copy.__weights
+                self.__total = copy.__total
                 return
             case Mapping():
-                # Get values and weights from a mapping.
-                mapping = cast(MappingSpec[Any], __items)
-                items = list(mapping.items())
+                pairs = cast(ItemsView[Any, Any], __events.items())
             case Iterable():
-                # Get values and weights by iterating over pairs.
-                items = list(__items)
+                pairs = ((event, 1) for event in __events)
             case _:
-                raise TypeError(f"not iterable: {type(__items).__name__!r}")
-        # Collect value weights.
-        pweight: dict[ET, WT] = {}  # Probability weights.
-        rweight: dict[ET, WT] = {}  # Remainder weights.
-        for item in items:
-            match item:  # Check input structure.
-                case [xvalue, int() | Fraction() as weight]:
-                    pass
-                case [_, xweight]:
-                    raise TypeError(f"not a probability: {type(xweight).__name__!r}")
-                case _:
-                    raise TypeError(f"not a pair: {type(item).__name__!r}")
-            value = self.validate_value(xvalue)  # Subtypes override this.
-            if not isinstance(value, Hashable):
-                raise TypeError(f"unhashable type: {type(value).__name__!r}")
-            if weight < 0:
-                rweight.setdefault(value, 0)
-                rweight[value] -= weight
-                weight = 0
-            pweight.setdefault(value, 0)
-            pweight[value] += weight
-        # Determine the normalized weight and remainder.
-        ptotal: WT = sum(pweight.values())
-        rtotal: WT = sum(rweight.values())
-        if not normalize:
-            normalize = ptotal or 1  # Ensure a nonzero denominator.
-        remainder: WT = normalize - ptotal
-        # Distribute the remainder, if there are any flex weights.
-        if remainder and rtotal:
-            scale = Fraction(remainder, rtotal)
-            for v, w in rweight.items():
-                rpw: WT = scale * w
-                pweight[v] += rpw
-            ptotal = sum(pweight.values())
-        # Scale weights to the normalized total.
-        scale = Fraction(normalize, ptotal or 1)
-        if scale != 1:
-            for v, w in pweight.items():
-                pweight[v] = scale * w
-            ptotal = sum(pweight.values())
-        # Reduce integral fractions.
-        for v, w in pweight.items():
-            numerator, denominator = w.as_integer_ratio()
-            if denominator == 1:
-                pweight[v] = numerator
+                raise TypeError(f"not iterable: {type(__events).__name__!r}")
+        # Collect event weights.
+        weights: dict[ET_co, WT] = {}
+        total = 0
+        for iv, iw in pairs:
+            # Convert input values to events.  Subtypes override this.
+            event: ET_co = self.init_event(iv)
+            # Check parameter types and values.
+            if not isinstance(event, Hashable):
+                raise TypeError(f"unhashable type: {type(event).__name__!r}")
+            if not isinstance(iw, int):
+                raise TypeError(f"not a probability weight: {type(iw).__name__!r}")
+            if iw < 0:
+                raise ValueError(f"not a probability weight: {iw!r} < 0")
+            # Record event weight and total weight.
+            weights[event] = weights.setdefault(event, 0) + iw
+            total += iw
+        # Optionally, reduce weights by their greatest common divisor.
+        if normalize:
+            factor = math.gcd(*weights.values())
+            if 1 < factor:  # Don't divide by 0 or 1.
+                for event in weights.keys():
+                    weights[event] //= factor
+                total //= factor
         # Initialize attributes.
-        self.__pweight = MappingProxyType(pweight)
-        self.__ptotal = ptotal or normalize
+        self.__weights = MappingProxyType(weights)
+        self.__total = total
 
     @classmethod
-    def validate_value(cls, __value: Hashable, /) -> ET:
+    def init_event(cls, __value: Hashable, /) -> ET_co:
         """Check input values and convert them as needed."""
-        return cast(ET, __value)  # Override this!
+        return cast(ET_co, __value)  # Override this!
 
     @classmethod
     @functools.cache
-    def die(cls, __faces: int | Sequence[ET] = 6, /) -> Self:
+    def die(cls, __faces: int | Sequence[ET_co] = 6, /) -> Self:
         """Generate the PMF for rolling one fair die with K faces."""
         faces: Self
         match __faces:
@@ -159,8 +166,8 @@ class BasePMF(Mapping[ET, WT]):
     @classmethod
     @functools.cache
     def enumerate_NdX(
-        cls, dice: int, faces: int | Sequence[ET] = 6
-    ) -> Iterable[tuple[ET, ...]]:
+        cls, dice: int, faces: int | Sequence[ET_co] = 6
+    ) -> Iterable[tuple[ET_co, ...]]:
         """Generate all distinct dice pool combinations."""
         if dice < 1:
             return ()
@@ -170,73 +177,47 @@ class BasePMF(Mapping[ET, WT]):
         # TODO: Enumerate Counter objects instead of sequences?
         return tuple(itertools.combinations_with_replacement(fpmf, dice))
 
-    @property
-    def int_weight(self) -> int:
-        """Find the minimum total weight to avoid fractional weights."""
-        # First, get all of the non-zero weights and sum them.
-        weights = [w for w in self.values() if w]
-        total = sum(weights)
-        if not total:
-            return 1
-
-        # Next, determine whether we need to multiply out fractions.
-        fracs = [w.denominator for w in weights]
-        lcm = math.lcm(*fracs)
-
-        # Resize based on the gcd (if integers) or lcm (if fractions).
-        size: WT
-        if lcm == 1:
-            nums = [w.numerator for w in weights]
-            gcd = math.gcd(*nums)
-            size = Fraction(total, gcd)
-        else:
-            size = Fraction(lcm * total, 1)
-
-        # Return the integral size.
-        assert size.denominator == 1
-        return size.numerator
-
-    @property
-    def total_weight(self) -> WT:
-        """Provide read-only access to the total probability."""
-        return self.__ptotal
-
-    @property
-    def mapping(self) -> MappingSpec[ET]:
-        """Provide read-only access to the probability mapping."""
-        # TODO: Return a Sequence instead of a MappingView?
-        return self.__pweight
+    @property  # TODO: functools.cached_property?
+    def domain(self) -> Sequence[ET_co]:
+        """Return all events defined for the PMF."""
+        return tuple(self.mapping)
 
     @property  # TODO: functools.cached_property?
-    def pairs(self) -> Sequence[tuple[ET, WT]]:
-        """Provide read-only access to the probability mapping."""
-        # TODO: Return a Sequence instead of a MappingView?
-        return tuple(self.__pweight.items())
+    def support(self) -> Sequence[ET_co]:
+        """Return all events with non-zero probability."""
+        return tuple(v for v, p in self.mapping.items() if p)
 
     @property  # TODO: functools.cached_property?
-    def domain(self) -> Sequence[ET]:
-        """Return all events (mapping keys) defined for the PMF."""
-        return tuple(self.keys())
-
-    @property  # TODO: functools.cached_property?
-    def support(self) -> Sequence[ET]:
-        """Return all events with non-zero weight."""
-        return tuple(v for v, p in self.__pweight.items() if p)
-
-    @property  # TODO: functools.cached_property?
-    def weights(self) -> Sequence[ET]:
+    def weights(self) -> Sequence[WT]:
         """Return all event weights defined for the PMF."""
-        return tuple(self.keys())
+        return tuple(self.mapping.values())
 
-    def normalized(self, __total: WT = 0, /) -> Self:
-        """Normalize to a given total weight and return the result."""
-        if __total < 0:  # Reserve negative sizes for future expansion.
-            raise ValueError(f"total weight {__total} < 0")
-        if not __total:
-            __total = self.int_weight
-        return (
-            self if self.__ptotal == __total else type(self)(self, normalize=__total)
-        )
+    @property  # TODO: functools.cached_property?
+    def weight_graph(self) -> Sequence[tuple[ET_co, WT]]:
+        """Return all of the (event, weight) pairs for the function."""
+        return tuple(self.mapping.items())
+
+    @property
+    def mapping(self) -> Mapping[ET_co, WT]:
+        """Provide read-only access to the probability mapping."""
+        return self.__weights
+
+    @property
+    def total(self) -> WT:
+        """Provide read-only access to the total probability."""
+        return self.__total
+
+    def mass(self, __event: ET_co, /) -> Fraction:
+        """Return the probability mass of a given event."""
+        return Fraction(self.mapping[__event], self.total)
+
+    def weight(self, __event: ET_co, /) -> WT:
+        """Return the probability weight of a given event."""
+        return self.mapping[__event]
+
+    def normalized(self) -> Self:
+        """Return an equivalent object with minimum integer weights."""
+        return type(self)(self, normalize=True)
 
     def tabulate(
         self,
@@ -276,31 +257,33 @@ class BasePMF(Mapping[ET, WT]):
         def measure(items: Iterable[Any], spec: str) -> int:
             return max(len(column(item, spec)) for item in items) if align else 0
 
-        # Normalize weights.
-        pmf = self.normalized(0 if wspec and wspec[-1] in "Xbcdnox" else 1)
+        # Select probability weight or mass depending on format.  Use
+        # integer weights for int formats, fractional masses otherwise.
+        pfunc = self.weight if wspec and wspec[-1] in "Xbcdnox" else self.mass
+        events = self.domain
         # Determine the minimum column & fraction widths.
-        vwidth = measure(pmf.keys(), vspec)
-        wwidth = measure(pmf.values(), wspec)
+        vwidth = measure(events, vspec)
+        wwidth = measure(map(pfunc, events), wspec)
         # Generate text.
         return tuple(
             separator.join(
-                (column(value, vspec, vwidth), column(weight, wspec, wwidth))
+                (column(event, vspec, vwidth), column(pfunc(event), wspec, wwidth))
             )
-            for value, weight in pmf.items()
+            for event in events
         )
 
-    def __format__(self, spec: str) -> str:
+    def __format__(self, __spec: str) -> str:
         """Format the PMF according to the format spec."""
-        rows = self.tabulate(spec, align=False)
+        rows = self.tabulate(__spec, align=False)
         return "{" + ", ".join(rows) + "}"
 
     def __repr__(self) -> str:
         """Format the PMF for diagnostics."""
         params = (
-            repr(dict(self.__pweight))
-            if self.__pweight
-            else f"normalize={self.__ptotal!r}"
-            if self.__ptotal != 1
+            repr(dict(self.mapping))
+            if self.mapping
+            else f"normalize={self.__total!r}"
+            if self.__total != 1
             else ""
         )
         return f"{type(self).__name__}({params})"
@@ -309,17 +292,21 @@ class BasePMF(Mapping[ET, WT]):
         """Format the PMF for printing."""
         return self.__format__("")
 
-    def __getitem__(self, key: ET) -> WT:
-        """Return the probability for a given value."""
-        return self.__pweight[key]
+    def __contains__(self, __event: object) -> bool:
+        """Test object for membership in the event domain."""
+        return bool(self.mapping.get(__event, 0))  # type: ignore
 
-    def __iter__(self) -> Iterator[ET]:
-        """Iterate over the discrete values."""
-        return iter(self.__pweight)
+    def __call__(self, __event: ET_co) -> Fraction:
+        """Return the given event probability as a fraction."""
+        return Fraction(self.mapping.get(__event, 0), self.total)
+
+    def __iter__(self) -> Iterator[ET_co]:
+        """Iterate over the event domain."""
+        return iter(self.domain)
 
     def __len__(self) -> int:
         """Return the number of discrete values in the mapping."""
-        return len(self.__pweight)
+        return len(self.mapping)
 
 
 DieFaces = int | Sequence[Any]  # TODO: Any -> Hashable?
@@ -327,26 +314,6 @@ DieFaces = int | Sequence[Any]  # TODO: Any -> Hashable?
 
 class PMF(BasePMF[Hashable]):
     """PMF for any Hashable value."""
-
-
-class DicePMF(BasePMF[DiceValue]):
-    """PMF for numeric values derived from dice rolls."""
-
-    @classmethod
-    def validate_value(cls, __value: Hashable, /) -> DiceValue:
-        """Check input values and convert them as needed."""
-        match __value:
-            case int() | Fraction():
-                pass
-            case float() | str():
-                __value = Fraction(__value)
-            case [int() as numerator, int() as denominator]:
-                # TODO: test this
-                # TODO: convert integral fractions to int?
-                __value = Fraction(numerator, denominator)
-            case _:
-                raise TypeError(f"irrational type: {type(__value).__name__!r}")
-        return super().validate_value(__value)
 
 
 def die_range(__arg1: int, __arg2: Optional[int] = None, /) -> range:
@@ -453,7 +420,7 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
     """
 
     @classmethod
-    def validate_value(cls, __value: Hashable, /) -> DiceTuple:
+    def init_event(cls, __value: Hashable, /) -> DiceTuple:
         """Check input values and convert them as needed."""
         failtype = ""
         match __value:
@@ -471,7 +438,7 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
                 failtype = type(__value).__name__
         if failtype:
             raise TypeError(f"not a dice tuple: {failtype!r}")
-        return super().validate_value(__value)
+        return super().init_event(__value)
 
     @classmethod
     @functools.cache
@@ -523,7 +490,7 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
         # Enumerate combinations for the remaining dice and determine
         # how many ways you can permute each one.
         fpmf = PMF.die(faces)
-        weights = [cast(int, w) for w in fpmf.values()] + [0, 0]
+        weights = list(fpmf.weights) + [0, 0]
         faces = tuple(fpmf)
         nfaces = len(faces)
         # Symbolic constants outside of range(nfaces), used below.
@@ -608,7 +575,7 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
 
 
 # Call D(K) to create the PMF for rolling 1dX.
-D = DicePMF.die
+D = PMF.die
 
 # Common die sizes.
 D2 = D(2)

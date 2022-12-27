@@ -21,8 +21,7 @@ class TestPMFInit:
         pmf = PMF()
         assert len(pmf) == 0
         assert pmf.mapping == {}
-        assert pmf.pairs == ()
-        assert pmf.total_weight == 1
+        assert pmf.total == 1
 
     def test_pmf_copy(self) -> None:
         """Test copying another PMF."""
@@ -30,7 +29,7 @@ class TestPMFInit:
         pmf1 = PMF(items)
         pmf2 = PMF(pmf1)
         assert pmf1.mapping is pmf2.mapping
-        assert pmf1.total_weight is pmf2.total_weight
+        assert pmf1.total is pmf2.total
 
     def test_pmf_dict(self) -> None:
         """Test initialization from a dict."""
@@ -53,21 +52,7 @@ class TestPMFInit:
         pmf = PMF(items)
         assert len(pmf) == len(items)
         assert pmf.mapping == {1: 3, 2: 2, 3: 1}
-        assert pmf.pairs == items
-
-    def test_pmf_remainder(self) -> None:
-        """Test remainder normalization."""
-        items = {1: 3, 2: -1, 3: 1}
-        pmf = PMF(items, normalize=6)
-        assert len(pmf) == len(items)
-        assert pmf.mapping == {1: 3, 2: 2, 3: 1}
-
-    def test_pmf_remainder_share(self) -> None:
-        """Test remainder normalization."""
-        items = {1: 3, 2: -2, 3: -1}
-        pmf = PMF(items, normalize=9)
-        assert len(pmf) == len(items)
-        assert pmf.mapping == {1: 3, 2: 4, 3: 2}
+        assert pmf.weight_graph == items
 
     def test_pmf_pzero(self) -> None:
         """Test a PMF with a zero probability."""
@@ -77,34 +62,11 @@ class TestPMFInit:
         assert pmf.mapping == items
         assert pmf.support == (1, 3)
 
-    def test_pmf_normalize_100(self) -> None:
-        """Test a PMF normalized to 100."""
-        items = {1: 4, 2: 3, 3: 2, 4: 1}
-        pmf = PMF(items, normalize=100)
-        assert len(pmf) == len(items)
-        assert pmf.mapping == {1: 40, 2: 30, 3: 20, 4: 10}
-        for p in pmf.values():  # no fractions!
-            assert isinstance(p, int)
-
-    def test_pmf_normalize_5(self) -> None:
-        """Test a PMF normalized to 5."""
-        items = Counter({1: 4, 2: 3, 3: 2, 4: 1})
-        resize = items.total() // 2
-        pmf = PMF(items, normalize=resize)
-        assert len(pmf) == len(items)
-        for v, w in items.items():
-            # All of the values should have half the weight.
-            assert pmf[v] == Fraction(w, 2)
-            # The odd weights should become Fraction objects, but the
-            # even ones should still be int after dividing by two.
-            expect = Fraction if w % 2 else int
-            assert isinstance(pmf[v], expect)
-
     def test_pmf_empty(self) -> None:
         """Test normalize parameter on empty PMFs."""
-        pmf = PMF(normalize=12)
+        pmf = PMF()
         assert len(pmf) == 0
-        assert pmf.total_weight == 12
+        assert pmf.total == 1
 
     type_errors: Any = (
         0,  # not iterable
@@ -119,11 +81,6 @@ class TestPMFInit:
         """Test bad inputs to the PMF constructor."""
         with pytest.raises(TypeError):
             PMF(error)
-
-    def test_pmf_normalize_error(self) -> None:
-        """Test invalide normalize parameter."""
-        with pytest.raises(ValueError):
-            PMF(normalize=-1)
 
 
 weights = {
@@ -170,7 +127,7 @@ class TestPMFNormalized:
         pmf = PMF(items)
         npmf = pmf.normalized()
         assert len(npmf) == len(pmf)
-        assert npmf.total_weight == int_weight
+        assert npmf.total == int_weight
 
         # All weights should be integers after default normalization.
         weights = tuple(npmf.values())
@@ -179,7 +136,7 @@ class TestPMFNormalized:
 
         total = sum(weights)
         if total:
-            assert npmf.total_weight == total
+            assert npmf.total == total
             assert math.gcd(*cast(tuple[int, ...], weights)) == 1
         else:
             assert len(npmf.support) == 0
@@ -191,7 +148,7 @@ class TestPMFNormalized:
         assert pmf.mapping == {1: 4, 2: 3, 3: 2, 4: 1}
 
         npmf = pmf.normalized(1)
-        assert npmf.total_weight == 1
+        assert npmf.total == 1
         assert npmf.mapping == {
             1: Fraction(2, 5),
             2: Fraction(3, 10),

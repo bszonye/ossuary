@@ -30,15 +30,15 @@ import tomllib
 import unicodedata
 from collections.abc import Collection, Hashable, Iterator, Mapping
 from dataclasses import dataclass, Field, fields, InitVar
-from typing import Any, BinaryIO, Optional, overload, Self
+from typing import Any, BinaryIO, Optional, overload, Self, TypeAlias
 
-from .pmf import BasePMF, DicePMF
+from .pmf import BasePMF
 
 # Type definitions.
-NameMapping = Mapping[str, Any]
-NumericSpec = int | float
-RandomSpec = str | DicePMF  # e.g. "1d6" or PMF
-ValueSpec = NumericSpec | RandomSpec
+NameMapping: TypeAlias = Mapping[str, Any]
+NumericSpec: TypeAlias = int | float
+RandomSpec: TypeAlias = str | BasePMF  # e.g. "1d6" or PMF
+ValueSpec: TypeAlias = NumericSpec | RandomSpec
 
 
 class Characteristic:
@@ -129,7 +129,7 @@ class AttackPMF(BasePMF[AttackCounter]):
     """Probability mass function for attack results."""
 
     @classmethod
-    def validate_value(cls, __value: Hashable, /) -> AttackCounter:
+    def init_event(cls, __value: Hashable, /) -> AttackCounter:
         """Check input values and convert them as needed."""
         failtype = ""
         match __value:
@@ -147,7 +147,7 @@ class AttackPMF(BasePMF[AttackCounter]):
                 failtype = type(__value).__name__
         if failtype:
             raise TypeError(f"not convertible to AttackCounter: {failtype!r}")
-        return super().validate_value(__value)
+        return super().init_event(__value)
 
 
 @dataclass

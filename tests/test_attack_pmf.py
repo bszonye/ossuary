@@ -24,7 +24,7 @@ class TestAttackPMFInit:
         pmf1 = AttackPMF()
         pmf2 = AttackPMF(pmf1)
         assert pmf1.mapping == pmf2.mapping
-        assert pmf1.total_weight == pmf2.total_weight
+        assert pmf1.total == pmf2.total
 
     def test_attack_int(self) -> None:
         """Test with integer arguments."""
