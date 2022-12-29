@@ -37,7 +37,7 @@ from .pmf import BasePMF
 # Type definitions.
 NameMapping: TypeAlias = Mapping[str, Any]
 NumericSpec: TypeAlias = int | float
-RandomSpec: TypeAlias = str | BasePMF  # e.g. "1d6" or PMF
+RandomSpec: TypeAlias = str | BasePMF[int]  # e.g. "1d6" or PMF
 ValueSpec: TypeAlias = NumericSpec | RandomSpec
 
 

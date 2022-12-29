@@ -2,7 +2,7 @@
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
-from fractions import Fraction
+from collections import Counter
 from typing import Any
 
 import pytest
@@ -38,16 +38,15 @@ class TestAttackPMFInit:
         counter2 = AttackCounter(2)
         counter3 = AttackCounter(3)
         pmap: dict[AttackCounter, WT] = {
-            counter1: 1,
-            counter2: Fraction(2),
-            counter3: Fraction(3, 1),
+            counter1: 3,
+            counter2: 2,
+            counter3: 1,
         }
-        plist = [(k, v) for k, v in pmap.items()]
-        pmf = AttackPMF(plist)
+        pmf = AttackPMF(Counter(pmap).elements())
         assert len(pmf) == 3
-        assert pmf[counter1] == pmap[counter1]
-        assert pmf[counter2] == pmap[counter2]
-        assert pmf[counter3] == pmap[counter3]
+        assert pmf.weight(counter1) == pmap[counter1]
+        assert pmf.weight(counter2) == pmap[counter2]
+        assert pmf.weight(counter3) == pmap[counter3]
 
     def test_attack_mapping(self) -> None:
         """Test a PMF with more than one value."""
@@ -55,15 +54,15 @@ class TestAttackPMFInit:
         counter2 = AttackCounter(2)
         counter3 = AttackCounter(2)
         pmap: dict[AttackCounter, WT] = {
-            counter1: 1,
-            counter2: Fraction(2),
-            counter3: Fraction(3, 1),
+            counter1: 3,
+            counter2: 2,
+            counter3: 1,
         }
         pmf = AttackPMF(pmap)
         assert len(pmf) == 2
-        assert pmf[counter1] == pmap[counter1]
-        assert pmf[counter2] == pmap[counter2]
-        assert pmf[counter3] == pmap[counter3]
+        assert pmf.weight(counter1) == pmap[counter1]
+        assert pmf.weight(counter2) == pmap[counter2]
+        assert pmf.weight(counter3) == pmap[counter3]
 
     def test_type_error(self) -> None:
         """Test parameter type errors."""

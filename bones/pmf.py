@@ -55,6 +55,7 @@ from typing import Any, cast, Optional, Self, SupportsIndex, TypeAlias, TypeVar
 # TODO: Remove Fraction (requires normalization rework).
 ET_co = TypeVar("ET_co", bound=Hashable)  # Event type.
 WT: TypeAlias = int  # Weight type.
+PT: TypeAlias = Fraction  # Probability type.
 
 
 class BasePMF(Collection[ET_co]):
@@ -104,11 +105,11 @@ class BasePMF(Collection[ET_co]):
             case BasePMF() if type(__events) is type(self):
                 # Copy another PMF of the same type.
                 copy = cast(BasePMF[ET_co], __events)
-                if normalize:
-                    copy = copy.normalized()
-                self.__weights = copy.__weights
-                self.__total = copy.__total
-                return
+                if not normalize:
+                    self.__weights = copy.__weights
+                    self.__total = copy.__total
+                    return
+                pairs = copy.pairs
             case Mapping():
                 pairs = cast(ItemsView[Any, Any], __events.items())
             case Iterable():
@@ -193,9 +194,14 @@ class BasePMF(Collection[ET_co]):
         return tuple(self.mapping.values())
 
     @property  # TODO: functools.cached_property?
-    def weight_graph(self) -> Sequence[tuple[ET_co, WT]]:
-        """Return all of the (event, weight) pairs for the function."""
+    def pairs(self) -> Sequence[tuple[ET_co, WT]]:  # TODO: rename?
+        """Return all of the (event, weight) pairs."""
         return tuple(self.mapping.items())
+
+    @property  # TODO: functools.cached_property?
+    def graph(self) -> Sequence[tuple[ET_co, PT]]:
+        """Return all of the (event, probability) pairs."""
+        return tuple((v, Fraction(w, self.total)) for v, w in self.mapping.items())
 
     @property
     def mapping(self) -> Mapping[ET_co, WT]:
@@ -207,17 +213,27 @@ class BasePMF(Collection[ET_co]):
         """Provide read-only access to the total probability."""
         return self.__total
 
-    def mass(self, __event: ET_co, /) -> Fraction:
-        """Return the probability mass of a given event."""
-        return Fraction(self.mapping[__event], self.total)
+    def probability(self, __event: ET_co, /) -> PT:
+        """Return the probability of a given event."""
+        try:
+            return Fraction(self.mapping[__event], self.total or 1)
+        except KeyError as ex:
+            raise ValueError(*ex.args) from None
 
     def weight(self, __event: ET_co, /) -> WT:
         """Return the probability weight of a given event."""
-        return self.mapping[__event]
+        try:
+            return self.mapping[__event]
+        except KeyError as ex:
+            raise ValueError(*ex.args) from None
 
     def normalized(self) -> Self:
         """Return an equivalent object with minimum integer weights."""
         return type(self)(self, normalize=True)
+
+    def copy(self) -> Self:
+        """Create a shallow copy."""
+        return type(self)(self, normalize=False)
 
     def tabulate(
         self,
@@ -257,9 +273,9 @@ class BasePMF(Collection[ET_co]):
         def measure(items: Iterable[Any], spec: str) -> int:
             return max(len(column(item, spec)) for item in items) if align else 0
 
-        # Select probability weight or mass depending on format.  Use
-        # integer weights for int formats, fractional masses otherwise.
-        pfunc = self.weight if wspec and wspec[-1] in "Xbcdnox" else self.mass
+        # Select probability or weight depending on format.  Use integer
+        # weights for int formats, fractional probabilities otherwise.
+        pfunc = self.weight if wspec and wspec[-1] in "Xbcdnox" else self.probability
         events = self.domain
         # Determine the minimum column & fraction widths.
         vwidth = measure(events, vspec)
@@ -296,9 +312,9 @@ class BasePMF(Collection[ET_co]):
         """Test object for membership in the event domain."""
         return bool(self.mapping.get(__event, 0))  # type: ignore
 
-    def __call__(self, __event: ET_co) -> Fraction:
+    def __call__(self, __event: ET_co) -> PT:
         """Return the given event probability as a fraction."""
-        return Fraction(self.mapping.get(__event, 0), self.total)
+        return Fraction(self.mapping.get(__event, 0), self.total or 1)
 
     def __iter__(self) -> Iterator[ET_co]:
         """Iterate over the event domain."""
@@ -356,6 +372,12 @@ def comb(__n: int, __k: int, /) -> int:
 
 
 @functools.cache
+def perm(__n: int, __k: Optional[int] = None, /) -> int:
+    """Cache results from the math.perm function."""
+    return math.perm(__n, __k)
+
+
+@functools.cache
 def multiset_comb(__n: int, __k: int, /) -> int:
     """Count multiset combinations for k items chosen from n options."""
     return math.comb(__n + __k - 1, __k)
@@ -384,12 +406,6 @@ def multiset_perm(__iter: Iterable[int], /) -> int:
     for count in k[1:]:
         weight //= math.factorial(count)
     return weight
-
-
-@functools.cache
-def perm(__n: int, __k: Optional[int] = None, /) -> int:
-    """Cache results from the math.perm function."""
-    return math.perm(__n, __k)
 
 
 @functools.cache
