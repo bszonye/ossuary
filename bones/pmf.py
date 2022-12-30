@@ -214,17 +214,18 @@ class BasePMF(Collection[ET_co]):
 
     def probability(self, __event: Any, /) -> PT:
         """Return the probability of a given event."""
-        try:
-            return Fraction(self.mapping[__event], self.total or 1)
-        except KeyError as ex:
-            raise ValueError(*ex.args) from None
+        weight = self.weight(__event)
+        return Fraction(weight, self.total or 1)
+
+    __call__ = probability
 
     def weight(self, __event: Any, /) -> WT:
         """Return the probability weight of a given event."""
         try:
-            return self.mapping[__event]
-        except KeyError as ex:
-            raise ValueError(*ex.args) from None
+            weight = self.mapping.get(__event, 0)
+        except TypeError:  # not Hashable
+            weight = 0
+        return weight
 
     def normalized(self) -> Self:
         """Return an equivalent object with minimum integer weights."""
@@ -310,10 +311,6 @@ class BasePMF(Collection[ET_co]):
     def __contains__(self, __event: Any) -> bool:
         """Test object for membership in the event domain."""
         return bool(self.mapping.get(__event, 0))
-
-    def __call__(self, __event: Any) -> PT:
-        """Return the given event probability as a fraction."""
-        return Fraction(self.mapping.get(__event, 0), self.total or 1)
 
     def __iter__(self) -> Iterator[ET_co]:
         """Iterate over the event domain."""
