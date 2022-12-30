@@ -5,6 +5,7 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 import math
 from collections import Counter
 from collections.abc import Sequence
+from fractions import Fraction
 from typing import Any
 
 import pytest
@@ -69,6 +70,7 @@ class TestPMFInit:
         pmf = PMF(items)
         assert len(pmf) == len(items)
         assert pmf.mapping == items
+        assert pmf.domain == (1, 2, 3)
         assert pmf.support == (1, 3)
 
     def test_pmf_empty(self) -> None:
@@ -80,8 +82,10 @@ class TestPMFInit:
 
     type_errors: Any = (
         0,  # not iterable
-        {1: "foo", 2: "bar", 3: "baz"},  # not a probability
-        ([], {}),  # not hashable
+        {0: "foo"},  # not a probability
+        {0: Fraction(1)},  # not a probability
+        ([],),  # not hashable
+        ({},),  # not hashable
     )
 
     @pytest.mark.parametrize("error", type_errors)
@@ -96,24 +100,23 @@ class TestPMFInit:
             PMF({0: -1})
 
 
-weights = {
-    # Zero weights.
-    (): 0,  # No weights.
-    (0,): 0,  # No non-zero weights.
-    (0, 0): 0,  # Multiple zero weights.
-    # Integral weights with gcd == 1.
-    (1,): 1,
-    (1, 2): 3,
-    (2, 3, 4): 9,
-    # Integral weights with gcd > 1.
-    (2, 4, 6): 6,
-    (10, 15, 20): 9,
-    (6, 12, 6, 12, 24): 10,
-}
-
-
 class TestPMFNormalized:
     """Test the PMF.normalized method."""
+
+    weights = {
+        # Zero weights.
+        (): 0,  # No weights.
+        (0,): 0,  # No non-zero weights.
+        (0, 0): 0,  # Multiple zero weights.
+        # Integral weights with gcd == 1.
+        (1,): 1,
+        (1, 2): 3,
+        (2, 3, 4): 9,
+        # Integral weights with gcd > 1.
+        (2, 4, 6): 6,
+        (10, 15, 20): 9,
+        (6, 12, 6, 12, 24): 10,
+    }
 
     @pytest.mark.parametrize("weights, int_weight", weights.items())
     def test_normalized_default(self, weights: Sequence[WT], int_weight: int) -> None:

@@ -53,7 +53,7 @@ from typing import Any, cast, Optional, Self, SupportsIndex, TypeAlias, TypeVar
 # TODO: Rename these to EventT and WeightT?
 # TODO: Export the type vars in __all__?
 # TODO: Remove Fraction (requires normalization rework).
-ET_co = TypeVar("ET_co", bound=Hashable)  # Event type.
+ET_co = TypeVar("ET_co", bound=Hashable, covariant=True)  # Event type.
 WT: TypeAlias = int  # Weight type.
 PT: TypeAlias = Fraction  # Probability type.
 
@@ -144,22 +144,21 @@ class BasePMF(Collection[ET_co]):
         self.__total = total
 
     @classmethod
-    def init_event(cls, __value: Hashable, /) -> ET_co:
+    def init_event(cls, __value: Any, /) -> ET_co:
         """Check input values and convert them as needed."""
         return cast(ET_co, __value)  # Override this!
 
     @classmethod
-    @functools.cache
-    def die(cls, __faces: int | Sequence[ET_co] = 6, /) -> Self:
+    def die(cls, __faces: int | Iterable[ET_co] = 6, /) -> Self:
         """Generate the PMF for rolling one fair die with K faces."""
         faces: Self
         match __faces:
             case BasePMF():
-                faces = cls(__faces)
+                faces = cast(Self, __faces.copy())
             case int():
                 faces = cls({item: 1 for item in die_range(__faces)})
-            case Sequence():
-                faces = cls(Counter(__faces))
+            case Iterable():
+                faces = cls(__faces)
             case _:
                 raise TypeError(f"not a die: {type(__faces).__name__!r}")
         return faces
@@ -213,14 +212,14 @@ class BasePMF(Collection[ET_co]):
         """Provide read-only access to the total probability."""
         return self.__total
 
-    def probability(self, __event: ET_co, /) -> PT:
+    def probability(self, __event: Any, /) -> PT:
         """Return the probability of a given event."""
         try:
             return Fraction(self.mapping[__event], self.total or 1)
         except KeyError as ex:
             raise ValueError(*ex.args) from None
 
-    def weight(self, __event: ET_co, /) -> WT:
+    def weight(self, __event: Any, /) -> WT:
         """Return the probability weight of a given event."""
         try:
             return self.mapping[__event]
@@ -308,11 +307,11 @@ class BasePMF(Collection[ET_co]):
         """Format the PMF for printing."""
         return self.__format__("")
 
-    def __contains__(self, __event: object) -> bool:
+    def __contains__(self, __event: Any) -> bool:
         """Test object for membership in the event domain."""
-        return bool(self.mapping.get(__event, 0))  # type: ignore
+        return bool(self.mapping.get(__event, 0))
 
-    def __call__(self, __event: ET_co) -> PT:
+    def __call__(self, __event: Any) -> PT:
         """Return the given event probability as a fraction."""
         return Fraction(self.mapping.get(__event, 0), self.total or 1)
 
@@ -457,14 +456,12 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
         return super().init_event(__value)
 
     @classmethod
-    @functools.cache
     def NdX(cls, dice: int = 1, faces: DieFaces = 6) -> Self:
         """Create the PMF for rolling a pool of N dice with K faces."""
         enumeration = PMF.enumerate_NdX(dice, faces)
         return cls((pool, pmf_weight(pool)) for pool in enumeration)
 
     @classmethod
-    @functools.cache
     def NdX_select(
         cls,
         dice: int = 1,

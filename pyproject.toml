@@ -107,10 +107,11 @@ line-length = 86
 [tool.coverage.report]
 exclude_lines = [
     'pragma: no cover',
-    'if TYPE_CHECKING:',
     '@overload',
+    'if TYPE_CHECKING:',
     'if __name__ == .__main__.:',
     'raise NotImplementedError',
+    'return \.\.\.  # type: ignore',
 ]
 
 [tool.coverage.run]
@@ -127,7 +128,6 @@ line_length = 86
 combine_as_imports = true
 order_by_type = false
 skip_gitignore = true
-extra_standard_library = ['tomllib']  # issue #2007
 
 [tool.mypy]
 mypy_path = "stubs"

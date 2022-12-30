@@ -32,13 +32,12 @@ from collections.abc import Collection, Hashable, Iterator, Mapping
 from dataclasses import dataclass, Field, fields, InitVar
 from typing import Any, BinaryIO, Optional, overload, Self, TypeAlias
 
-from .pmf import BasePMF
+from .pmf import BasePMF, PMF
 
 # Type definitions.
 NameMapping: TypeAlias = Mapping[str, Any]
 NumericSpec: TypeAlias = int | float
-RandomSpec: TypeAlias = str | BasePMF[int]  # e.g. "1d6" or PMF
-ValueSpec: TypeAlias = NumericSpec | RandomSpec
+RandomSpec: TypeAlias = str | PMF  # e.g. "1d6" or PMF
 
 
 class Characteristic:
@@ -63,16 +62,12 @@ class RandomizableValue(Characteristic):
         ...
 
     @classmethod
-    def factory(cls, __value: ValueSpec, /) -> "RandomizableValue":
+    def factory(cls, __value: NumericSpec | RandomSpec, /) -> "RandomizableValue":
         """Create an appropriate instance from the value given."""
         match __value:
-            case int():
+            case int() | float():
                 return NumericValue(__value)
-            case float():
-                return NumericValue(__value)
-            case str():
-                return RandomValue(__value)
-            case BasePMF():
+            case str() | PMF():
                 return RandomValue(__value)
             case _:
                 raise TypeError
@@ -81,18 +76,18 @@ class RandomizableValue(Characteristic):
 class NumericValue(RandomizableValue):  # TODO: subclass float or Fraction?
     """A characteristic with a rational numeric value."""
 
-    def __init__(self, __value: NumericSpec = float("nan"), /) -> None:
+    def __init__(self, __value: NumericSpec, /) -> None:
         """TODO."""
 
 
-class RandomValue(RandomizableValue):  # TODO: subclass lea.Alea?
+class RandomValue(RandomizableValue):  # TODO: subclass PMF?
     """A characteristic determined by die roll."""
 
     def __init__(self, __value: RandomSpec, /) -> None:
         """TODO."""
 
 
-class TargetNumber(NumericValue):
+class TargetNumber(Characteristic):
     """A target number for dice rolls (e.g. weapon skill, to wound)."""
 
 
@@ -117,8 +112,8 @@ class AttackCounter:
         """Check field types."""
         for f in fields(self):
             value = getattr(self, f.name)
-            # This only works for concrete types.  It will need writing
-            # if any fields or subtypes use generic types or unions.
+            # This only works for concrete types, not annotations like
+            # generic types or type unions.
             if not isinstance(value, f.type):
                 vtype = f.type.__name__
                 vactual = type(value).__name__
@@ -347,7 +342,7 @@ class Weapon(Profile):
 
     range_: NumericValue
     type_: str  # Melee, Missile, Assault, Heavy, Rapid Fire, Grenade, Pistol
-    attacks: RandomizableValue = NumericValue()
+    attacks: RandomizableValue = NumericValue(1)
     skill: TargetNumber = TargetNumber()
     strength: Modifier = Modifier()
     save_modifier: Modifier = Modifier()
@@ -355,23 +350,19 @@ class Weapon(Profile):
 
     def hit_roll(self, attack: AttackSequence, pmf: AttackPMF) -> AttackPMF:
         """Resolve the Hit Roll step of the attack sequence."""
-        # TODO
-        return pmf
+        return ...  # type: ignore
 
     def wound_roll(self, attack: AttackSequence, pmf: AttackPMF) -> AttackPMF:
         """Resolve the Hit Roll step of the attack sequence."""
-        # TODO
-        return pmf
+        return ...  # type: ignore
 
     def save_roll(self, attack: AttackSequence, pmf: AttackPMF) -> AttackPMF:
         """Resolve the Hit Roll step of the attack sequence."""
-        # TODO
-        return pmf
+        return ...  # type: ignore
 
     def damage_roll(self, attack: AttackSequence, pmf: AttackPMF) -> AttackPMF:
         """Resolve the Hit Roll step of the attack sequence."""
-        # TODO
-        return pmf
+        return ...  # type: ignore
 
 
 class WarscrollWeapon(Weapon):

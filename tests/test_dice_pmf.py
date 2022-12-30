@@ -20,12 +20,11 @@ class TestDicePMFInit:
         # For each predefined die size, get its PMF from the D function.
         die = D(size)
         assert isinstance(die, PMF)
-        # Verify that there's a corresponding module variable. The
-        # D function caches results, so they should be "is" equivalent.
+        # Verify that there's a corresponding module variable.
         attr = f"D{size}"
         mdie = getattr(bones.pmf, attr)
         assert isinstance(mdie, PMF)
-        assert die.mapping is mdie.mapping
+        assert die.mapping == mdie.mapping
         # Test the PMF properties.
         assert len(die) == size
         for v, p in die.mapping.items():
@@ -47,7 +46,7 @@ class TestDicePMFInit:
         assert D00.support == tuple(r00)
         assert D000.support == tuple(r000)
         assert DF.support == tuple(rF) == (-1, 0, +1)
-        # Verify "is" equivalence to the D function for special dice.
-        assert D00.mapping is D(r00).mapping
-        assert D000.mapping is D(r000).mapping
-        assert DF.mapping is D(rF).mapping
+        # Verify equivalence to the D function for special dice.
+        assert D00.mapping == D(r00).mapping
+        assert D000.mapping == D(r000).mapping
+        assert DF.mapping == D(rF).mapping
