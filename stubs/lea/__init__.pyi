@@ -1,7 +1,7 @@
-from .lea import Lea as Lea, P as P, Pf as Pf
 from .alea import Alea as Alea
-from .ilea import Ilea as Ilia
 from .evidence_ctx import EvidenceCtx as EvidenceCtx
+from .ilea import Ilea as Ilia
+from .lea import Lea as Lea, P as P, Pf as Pf
 from .license import VER as __version__
 
 # make convenient aliases for public static methods of Lea & Alea classes

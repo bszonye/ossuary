@@ -87,10 +87,10 @@ includes = ["bones"]
 
 # pipx install black
 # pipx install flake8
-# pipx inject --include-apps --include-deps flake8 \
-#      flake8-bugbear flake8-docstrings flake8-isort flake8-pyi
-# pipx inject --include-apps flake8 isort
+# pipx inject flake8 flake8-bugbear flake8-pyi
+# pipx install isort
 # pipx install pre-commit
+# pipx install pydocstyle
 
 types = [
     "mypy @ git+https://github.com/python/mypy.git",
@@ -135,9 +135,6 @@ files = "."
 strict = true
 warn_no_return = true
 warn_unreachable = true
-
-[tool.pydocstyle]
-match = '.*[.]py'
 
 [tool.pyright]
 typeCheckingMode = "strict"
