@@ -28,16 +28,16 @@ import functools
 import keyword
 import tomllib
 import unicodedata
-from collections.abc import Collection, Hashable, Iterator, Mapping
+from collections.abc import Collection, Iterator, Mapping
 from dataclasses import dataclass, Field, fields, InitVar
 from typing import Any, BinaryIO, Optional, overload, Self, TypeAlias
 
-from .pmf import BasePMF, PMF
+from .pmf import PMF
 
 # Type definitions.
 NameMapping: TypeAlias = Mapping[str, Any]
 NumericSpec: TypeAlias = int | float
-RandomSpec: TypeAlias = str | PMF  # e.g. "1d6" or PMF
+RandomSpec: TypeAlias = str | PMF[int]  # e.g. "1d6" or PMF
 
 
 class Characteristic:
@@ -120,29 +120,8 @@ class AttackCounter:
                 raise TypeError(f"{f.name!r}: expected {vtype!r}, not {vactual!r}")
 
 
-class AttackPMF(BasePMF[AttackCounter]):
+class AttackPMF(PMF[AttackCounter]):
     """Probability mass function for attack results."""
-
-    @classmethod
-    def init_event(cls, __value: Hashable, /) -> AttackCounter:
-        """Check input values and convert them as needed."""
-        failtype = ""
-        match __value:
-            case AttackCounter():
-                pass
-            case [int() as attacks, int() as wounds, int() as mortals]:
-                __value = AttackCounter(attacks, wounds, mortals)
-            case [int() as attacks, int() as wounds]:
-                __value = AttackCounter(attacks, wounds)
-            case [int() as attacks]:
-                __value = AttackCounter(attacks)
-            case int() as attacks:
-                __value = AttackCounter(attacks)
-            case _:
-                failtype = type(__value).__name__
-        if failtype:
-            raise TypeError(f"not convertible to AttackCounter: {failtype!r}")
-        return super().init_event(__value)
 
 
 @dataclass

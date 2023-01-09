@@ -3,7 +3,6 @@
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 __all__ = [
-    "BasePMF",
     "D",
     "D00",
     "D000",
@@ -54,12 +53,12 @@ from typing import Any, cast, Optional, Self, SupportsIndex, TypeAlias, TypeVar
 # TODO: Export the type vars in __all__?
 # TODO: Remove Fraction (requires normalization rework).
 # TODO: Don't bind ET_co to Hashable?
-ET_co = TypeVar("ET_co", bound=Hashable, covariant=True)  # Event type.
+ET_co = TypeVar("ET_co", covariant=True)  # Event type.
 WT: TypeAlias = int  # Weight type.
 PT: TypeAlias = Fraction  # Probability type.
 
 
-class BasePMF(Collection[ET_co]):
+class PMF(Collection[ET_co]):
     """Generic base class for probability mass functions.
 
     A probability mass function (PMF) associates probabilities with
@@ -94,25 +93,24 @@ class BasePMF(Collection[ET_co]):
 
     def __init__(
         self,
-        __events: Mapping[Any, WT] | Iterable[Any] = (),
+        __events: Mapping[ET_co, WT] | Iterable[ET_co] = (),
         /,
         *,
         normalize: bool = True,
     ) -> None:
         """Initialize PMF object."""
         # Convert input mapping or iterable to a list of pairs.
-        pairs: Iterable[tuple[Any, WT]]
+        pairs: Iterable[tuple[ET_co, WT]]
         match __events:
-            case BasePMF() if type(__events) is type(self):
+            case PMF() if type(__events) is type(self):
                 # Copy another PMF of the same type.
-                copy = cast(BasePMF[ET_co], __events)
                 if not normalize:
-                    self.__weights = copy.__weights
-                    self.__total = copy.__total
+                    self.__weights = __events.__weights
+                    self.__total = __events.__total
                     return
-                pairs = copy.pairs
+                pairs = __events.pairs
             case Mapping():
-                pairs = cast(ItemsView[Any, Any], __events.items())
+                pairs = cast(ItemsView[ET_co, WT], __events.items())
             case Iterable():
                 pairs = ((event, 1) for event in __events)
             case _:
@@ -120,19 +118,17 @@ class BasePMF(Collection[ET_co]):
         # Collect event weights.
         weights: dict[ET_co, WT] = {}
         total = 0
-        for iv, iw in pairs:
-            # Convert input values to events.  Subtypes override this.
-            event: ET_co = self.init_event(iv)
+        for ev, wt in pairs:
             # Check parameter types and values.
-            if not isinstance(event, Hashable):
-                raise TypeError(f"unhashable type: {type(event).__name__!r}")
-            if not isinstance(iw, int):
-                raise TypeError(f"not a probability weight: {type(iw).__name__!r}")
-            if iw < 0:
-                raise ValueError(f"not a probability weight: {iw!r} < 0")
+            if not isinstance(ev, Hashable):
+                raise TypeError(f"unhashable type: {type(ev).__name__!r}")
+            if not isinstance(wt, int):  # pyright: ignore
+                raise TypeError(f"not a probability weight: {type(wt).__name__!r}")
+            if wt < 0:
+                raise ValueError(f"not a probability weight: {wt!r} < 0")
             # Record event weight and total weight.
-            weights[event] = weights.setdefault(event, 0) + iw
-            total += iw
+            weights[ev] = weights.setdefault(ev, 0) + wt
+            total += wt
         # Optionally, reduce weights by their greatest common divisor.
         if normalize:
             factor = math.gcd(*weights.values())
@@ -150,16 +146,17 @@ class BasePMF(Collection[ET_co]):
         return cast(ET_co, __value)  # Override this!
 
     @classmethod
-    def die(cls, __faces: int | Iterable[ET_co] = 6, /) -> Self:
+    def die(cls, __faces: int | Iterable[int] = 6, /) -> "PMF[int]":
         """Generate the PMF for rolling one fair die with K faces."""
-        faces: Self
+        # TODO: Move this to the bones.roll.Die class.
+        faces: PMF[int]
         match __faces:
-            case BasePMF():
-                faces = cast(Self, __faces.copy())
+            case PMF():
+                faces = __faces.copy()
             case int():
-                faces = cls({item: 1 for item in die_range(__faces)})
+                faces = PMF({item: 1 for item in die_range(__faces)})
             case Iterable():
-                faces = cls(__faces)
+                faces = PMF(__faces)
             case _:
                 raise TypeError(f"not a die: {type(__faces).__name__!r}")
         return faces
@@ -167,8 +164,8 @@ class BasePMF(Collection[ET_co]):
     @classmethod
     @functools.cache
     def enumerate_NdX(
-        cls, dice: int, faces: int | Sequence[ET_co] = 6
-    ) -> Iterable[tuple[ET_co, ...]]:
+        cls, dice: int, faces: int | Iterable[int] = 6
+    ) -> Iterable[tuple[int, ...]]:
         """Generate all distinct dice pool combinations."""
         if dice < 1:
             return ()
@@ -325,10 +322,6 @@ class BasePMF(Collection[ET_co]):
 DieFaces = int | Sequence[Any]  # TODO: Any -> Hashable?
 
 
-class PMF(BasePMF[Hashable]):
-    """PMF for any Hashable value."""
-
-
 def die_range(__arg1: int, __arg2: Optional[int] = None, /) -> range:
     """Create a range over the numbered faces of a die.
 
@@ -423,7 +416,7 @@ def pmf_weight(__dice: DiceIterable) -> int:
     return multiset_perm(counts)
 
 
-class DiceTuplePMF(BasePMF[DiceTuple]):
+class DiceTuplePMF(PMF[DiceTuple]):
     """Probability mass function for analyzing raw dice pools.
 
     Use this when you need to analyze or select specific dice rolls
@@ -457,7 +450,8 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
     def NdX(cls, dice: int = 1, faces: DieFaces = 6) -> Self:
         """Create the PMF for rolling a pool of N dice with K faces."""
         enumeration = PMF.enumerate_NdX(dice, faces)
-        return cls((pool, pmf_weight(pool)) for pool in enumeration)
+        mapping = {pool: pmf_weight(pool) for pool in enumeration}
+        return cls(mapping)
 
     @classmethod
     def NdX_select(
@@ -514,7 +508,7 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
         # preserve the input order and to accommodate non-comparable die
         # values.  For example, this enumerates three six-sided dice
         # numerically from (0, 0, 0) to (5, 5, 5).
-        pweight: dict[Sequence[Hashable], WT] = {}
+        pweight: dict[DiceTuple, WT] = {}
         for ipool in itertools.combinations_with_replacement(range(nfaces), keep):
             # Get the range of face numbers.
             low = ipool[0]
@@ -575,7 +569,7 @@ class DiceTuplePMF(BasePMF[DiceTuple]):
             # print(f"{ipool=} {vpool=} {weight=} {low=} {high=} {dl=} {dh=}")
         return cls(pweight)
 
-    def sum_pools(self) -> PMF:
+    def sum_pools(self) -> PMF[int]:
         """Sum the pools and return the resulting PMF."""
         pmf: dict[int, WT] = {}
         for pool, count in self.mapping.items():

@@ -19,7 +19,7 @@ class TestDicePMFInit:
         assert isinstance(die, PMF)
         # Verify that there's a corresponding module variable.
         attr = f"D{size}"
-        mdie = getattr(bones.pmf, attr)
+        mdie: PMF[int] = getattr(bones.pmf, attr)
         assert isinstance(mdie, PMF)
         assert die.mapping == mdie.mapping
         # Test the PMF properties.

@@ -56,24 +56,6 @@ class TestAttackPMFInit:
         assert pmf1.mapping == pmf2.mapping
         assert pmf1.total == pmf2.total
 
-    def test_attack_from_ints(self) -> None:
-        attacks = (3, 2, 1)
-        pmf = AttackPMF(attacks)
-        assert len(pmf) == len(attacks)
-        for item in attacks:
-            assert AttackCounter(item) in pmf
-
-    def test_attack_from_tuples(self) -> None:
-        attacks = (
-            (1,),
-            (2, 1),
-            (3, 2, 1),
-        )
-        pmf = AttackPMF(attacks)
-        assert len(pmf) == len(attacks)
-        for item in attacks:
-            assert AttackCounter(*item) in pmf
-
     def test_attack_from_iterable(self) -> None:
         counter1 = AttackCounter(1)
         counter2 = AttackCounter(2)
@@ -103,15 +85,3 @@ class TestAttackPMFInit:
         assert pmf.weight(counter1) == pmap[counter1]
         assert pmf.weight(counter2) == pmap[counter2]
         assert pmf.weight(counter3) == pmap[counter3]
-
-    def test_type_error(self) -> None:
-        items: Any
-        with pytest.raises(TypeError):
-            items = {"nope": 1}
-            AttackPMF(items)
-        with pytest.raises(TypeError):
-            items = ("nope",)
-            AttackPMF(items)
-        with pytest.raises(TypeError):
-            items = "nope"
-            AttackPMF(items)
