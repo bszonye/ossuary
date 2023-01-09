@@ -28,7 +28,7 @@ import functools
 import keyword
 import tomllib
 import unicodedata
-from collections.abc import Collection, Iterator, Mapping
+from collections.abc import Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass, Field, fields, InitVar
 from typing import Any, BinaryIO, Optional, overload, Self, TypeAlias
 
@@ -105,19 +105,8 @@ class AttackCounter:
     """Results counter for each step of the attack sequence."""
 
     attacks: int
-    wounds: int = 0
     mortals: int = 0
-
-    def __post_init__(self) -> None:
-        """Check field types."""
-        for f in fields(self):
-            value = getattr(self, f.name)
-            # This only works for concrete types, not annotations like
-            # generic types or type unions.
-            if not isinstance(value, f.type):
-                vtype = f.type.__name__
-                vactual = type(value).__name__
-                raise TypeError(f"{f.name!r}: expected {vtype!r}, not {vactual!r}")
+    wounds: Sequence[int | PMF[int]] = ()
 
 
 class AttackPMF(PMF[AttackCounter]):

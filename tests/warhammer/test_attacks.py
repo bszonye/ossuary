@@ -3,9 +3,6 @@
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 from collections import Counter
-from typing import Any
-
-import pytest
 
 from bones.pmf import WT
 from bones.warhammer import AttackCounter, AttackPMF
@@ -15,15 +12,15 @@ class TestAttackCounterInit:
     def test_defaults(self) -> None:
         counter = AttackCounter(0)
         assert counter.attacks == 0
-        assert counter.wounds == 0
         assert counter.mortals == 0
+        assert counter.wounds == ()
 
     def test_fields(self) -> None:
         # Test with all field parameters set.
-        counter = AttackCounter(3, 2, 1)
+        counter = AttackCounter(3, 2, (1,))
         assert counter.attacks == 3
-        assert counter.wounds == 2
-        assert counter.mortals == 1
+        assert counter.mortals == 2
+        assert counter.wounds == (1,)
 
     errors = [
         None,
@@ -33,15 +30,6 @@ class TestAttackCounterInit:
         0 + 0j,
         "nope",
     ]
-
-    @pytest.mark.parametrize("error", errors)
-    def test_errors(self, error: Any) -> None:
-        with pytest.raises(TypeError):
-            AttackCounter(attacks=error)
-        with pytest.raises(TypeError):
-            AttackCounter(0, wounds=error)
-        with pytest.raises(TypeError):
-            AttackCounter(0, mortals=error)
 
 
 class TestAttackPMFInit:
