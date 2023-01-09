@@ -9,14 +9,11 @@ from bones.pmf import D, die_range, PMF
 
 
 class TestDicePMFInit:
-    """Test the PMF constructor."""
-
     # The module should provide prebuilt dice objects for all of these.
     die_sizes = (2, 3, 4, 6, 8, 10, 12, 20, 30, 100, 1000)
 
     @pytest.mark.parametrize("size", die_sizes)
     def test_DX_objects(self, size: int) -> None:
-        """Test the predefined dice objects."""
         # For each predefined die size, get its PMF from the D function.
         die = D(size)
         assert isinstance(die, PMF)
@@ -35,7 +32,6 @@ class TestDicePMFInit:
         assert die.support == tuple(die_range(size))
 
     def test_special_dice(self) -> None:
-        """Test special dice objects."""
         from bones.pmf import D00, D000, DF
 
         # Construct the special die ranges.

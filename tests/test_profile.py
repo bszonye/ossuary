@@ -33,52 +33,45 @@ class SubProfileABC(SubProfileA, SubProfileB, SubProfileC):  # noqa: D101
 
 
 class TestProfileInheritance:
-    """Test Profile attribute inheritance."""
-
     def test_inherited_attributes(self) -> None:
-        """Test attribute initialization in the Profile base class."""
+        # Test attribute initialization in the Profile base class.
         subABC = SubProfileABC()
         assert {*subABC} == {"name", "test_a", "test_b1", "test_b2", "test_abc"}
 
 
 class TestProfileInit:
-    """Test the Profile class constructor."""
-
-    def test_simple(self) -> None:
-        """Test with minimal arguments."""
+    def test_defaults(self) -> None:
         prof = Profile()
         assert prof.name == type(prof).name
 
     def test_custom_name(self) -> None:
-        """Test constructor with name parameter."""
+        # Test constructor with name parameter.
         prof = Profile("Test")
         assert prof.name == "Test"
 
 
 class TestProfileLoad:
-    """Test the Profile load constructors: loadmap, loadf, loads."""
-
     def test_loadmap_trivial(self) -> None:
-        """Test Profile.loadmap with an empty mapping."""
+        # Test Profile.loadmap with an empty mapping.
         profiles = Profile.loadmap({})
         assert profiles == {}
 
     def test_loadmap_simple(self) -> None:
-        """Test Profile.loadmap with just a name."""
+        # Test Profile.loadmap with just a name.
         profiles = Profile.loadmap({"Test Profile": {}})
         assert len(profiles) == 1
         prof = profiles["Test Profile"]
         assert prof.name == "Test Profile"
 
     def test_loadmap_attr(self) -> None:
-        """Test Profile.loadmap with a profile set."""
+        # Test Profile.loadmap with a profile set.
         profiles = Profile.loadmap({"Test Profile": {"name": "Test"}})
         assert len(profiles) == 1
         prof = profiles["Test Profile"]
         assert prof.name == "Test"
 
     def test_loadmap_multiple(self) -> None:
-        """Test Profile.loadmap with multiple profiles."""
+        # Test Profile.loadmap with multiple profiles
         profiles = Profile.loadmap(
             {
                 "Test 1": {},
@@ -92,7 +85,7 @@ class TestProfileLoad:
         assert profiles["Test 3"].name == "Test Three"
 
     def test_loadmap_defaults(self) -> None:
-        """Test Profile.loadmap with default values."""
+        # Test Profile.loadmap with default values.
         profiles = SubProfileABC.loadmap(
             {
                 "Test 1": {"test_a": 1},
@@ -129,7 +122,6 @@ class TestProfileLoad:
         )
 
     def test_loadmap_field_errors(self) -> None:
-        """Test Profile.loadmap with duplicate names."""
         # Unknown field name.
         with pytest.raises(ValueError) as ex:
             Profile.loadmap({"Test": {"name": "Test", "game": "Test"}})
@@ -162,7 +154,6 @@ class TestProfileLoad:
     """
 
     def test_loads(self) -> None:
-        """Test Profile.loads method."""
         profiles = Profile.loads(self.TOML)
         assert len(profiles) == 3
         assert profiles["Test"].name == "Test 1"
@@ -170,7 +161,6 @@ class TestProfileLoad:
         assert profiles["test3"].name == "3.0"  # convert from float
 
     def test_loadf(self) -> None:
-        """Test Profile.loads method."""
         bf = io.BytesIO(bytes(self.TOML, "utf-8"))
         profiles = Profile.loadf(bf)
         assert len(profiles) == 3
@@ -180,10 +170,8 @@ class TestProfileLoad:
 
 
 class TestProfileFields:
-    """Test the Profile.fields method."""
-
     def test_simple(self) -> None:
-        """Test with the base Profile class."""
+        # Test with the base Profile class.
         prof = Profile()
         fmap = prof.fields()
         # Instance and class should produce the same fields.
@@ -196,7 +184,7 @@ class TestProfileFields:
         assert fname.type == str
 
     def test_inherited_fields(self) -> None:
-        """Test attribute initialization in the Profile base class."""
+        # Test attribute initialization in the Profile base class.
         subABC = SubProfileABC()
         fmap = subABC.fields()
         # Instance and class should produce the same fields.
@@ -208,8 +196,6 @@ class TestProfileFields:
 
 
 class TestProfileNormalize:
-    """Test the Profile.normalize method."""
-
     # input: (python, null, nopython, toml, colon)
     normalize_table = {
         # No transformation required.
@@ -254,7 +240,6 @@ class TestProfileNormalize:
 
     @pytest.mark.parametrize("name", normalize_table)
     def test_normalize(self, name: str) -> None:
-        """Test Profile.normalize method with minimal arguments."""
         python, null, nopython, toml, colon = self.normalize_table[name]
         assert python == Profile.normalize(name)
         assert python == Profile.normalize(name, connector="_")
@@ -264,29 +249,24 @@ class TestProfileNormalize:
         assert colon == Profile.normalize(name, connector=":")
 
     def test_normalize_error(self) -> None:
-        """Test Profile.normalize with incompatible parameters."""
         with pytest.raises(ValueError):
             Profile.normalize("", connector=":", python=True)
 
 
 class TestProfileMapping:
-    """Test Profile mapping operations."""
-
     def test_sequence(self) -> None:
-        """Test Profile sequence operations: len, iter."""
+        # Test Profile sequence operations: len, iter.
         subABC = SubProfileABC()
         assert len(subABC) == 5
         assert len(subABC) == len(tuple(subABC))
 
     def test_mapping(self) -> None:
-        """Test attribute initialization in the Profile base class."""
         subABC = SubProfileABC(name="Test")
         assert subABC["name"] == "Test"  # exact name lookup
         assert subABC["NAME"] == "Test"  # normalized name lookup
         assert subABC["__name__"] == "Test"  # normalized name lookup
 
     def test_mapping_error(self) -> None:
-        """Test mapping lookup errors."""
         subABC = SubProfileABC(name="Test")
         with pytest.raises(KeyError):
             subABC["game"]  # exact name lookup
@@ -294,7 +274,6 @@ class TestProfileMapping:
             subABC["GAME"]  # normalized name lookup
 
     def test_attribute_error(self) -> None:
-        """Test attribute lookup errors."""
         subABC = SubProfileABC(name="Test")
         with pytest.raises(AttributeError):
             subABC.game  # exact name lookup

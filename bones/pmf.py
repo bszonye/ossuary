@@ -53,6 +53,7 @@ from typing import Any, cast, Optional, Self, SupportsIndex, TypeAlias, TypeVar
 # TODO: Rename these to EventT and WeightT?
 # TODO: Export the type vars in __all__?
 # TODO: Remove Fraction (requires normalization rework).
+# TODO: Don't bind ET_co to Hashable?
 ET_co = TypeVar("ET_co", bound=Hashable, covariant=True)  # Event type.
 WT: TypeAlias = int  # Weight type.
 PT: TypeAlias = Fraction  # Probability type.

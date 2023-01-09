@@ -1,4 +1,4 @@
-"""Unit tests for bones.warhammer.AttackPMF class."""
+"""Unit tests for bones.warhammer.AttackPMF & AttackCounter classes."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
@@ -12,17 +12,14 @@ from bones.warhammer import AttackCounter, AttackPMF
 
 
 class TestAttackCounterInit:
-    """Test the AttackCounter post-init constructor."""
-
-    def test_simple(self) -> None:
-        """Test with minimal arguments."""
+    def test_defaults(self) -> None:
         counter = AttackCounter(0)
         assert counter.attacks == 0
         assert counter.wounds == 0
         assert counter.mortals == 0
 
     def test_fields(self) -> None:
-        """Test with all parameters set."""
+        # Test with all field parameters set.
         counter = AttackCounter(3, 2, 1)
         assert counter.attacks == 3
         assert counter.wounds == 2
@@ -39,7 +36,6 @@ class TestAttackCounterInit:
 
     @pytest.mark.parametrize("error", errors)
     def test_errors(self, error: Any) -> None:
-        """Test with bad parameters."""
         with pytest.raises(TypeError):
             AttackCounter(attacks=error)
         with pytest.raises(TypeError):
@@ -49,40 +45,36 @@ class TestAttackCounterInit:
 
 
 class TestAttackPMFInit:
-    """Test the AttackPMF constructor."""
-
-    def test_default(self) -> None:
-        """Test with default arguments."""
+    def test_defaults(self) -> None:
         pmf = AttackPMF()
         assert len(pmf) == 0
 
     def test_attack_copy(self) -> None:
-        """Test copying another AttackPMF."""
+        # Copy another AttackPMF.
         pmf1 = AttackPMF()
         pmf2 = AttackPMF(pmf1)
         assert pmf1.mapping == pmf2.mapping
         assert pmf1.total == pmf2.total
 
-    def test_attack_int(self) -> None:
-        """Test with integer arguments."""
-        pmf = AttackPMF({3: 1})
-        assert len(pmf) == 1
-        assert pmf.mapping == {AttackCounter(3): 1}
+    def test_attack_from_ints(self) -> None:
+        attacks = (3, 2, 1)
+        pmf = AttackPMF(attacks)
+        assert len(pmf) == len(attacks)
+        for item in attacks:
+            assert AttackCounter(item) in pmf
 
-    def test_attack_tuples(self) -> None:
-        """Test with tuple arguments."""
-        tuples = (
+    def test_attack_from_tuples(self) -> None:
+        attacks = (
             (1,),
             (2, 1),
             (3, 2, 1),
         )
-        pmf = AttackPMF(tuples)
-        assert len(pmf) == len(tuples)
-        for item in tuples:
+        pmf = AttackPMF(attacks)
+        assert len(pmf) == len(attacks)
+        for item in attacks:
             assert AttackCounter(*item) in pmf
 
-    def test_attack_iterable(self) -> None:
-        """Test a PMF with more than one value."""
+    def test_attack_from_iterable(self) -> None:
         counter1 = AttackCounter(1)
         counter2 = AttackCounter(2)
         counter3 = AttackCounter(3)
@@ -97,8 +89,7 @@ class TestAttackPMFInit:
         assert pmf.weight(counter2) == pmap[counter2]
         assert pmf.weight(counter3) == pmap[counter3]
 
-    def test_attack_mapping(self) -> None:
-        """Test a PMF with more than one value."""
+    def test_attack_from_dict(self) -> None:
         counter1 = AttackCounter(1)
         counter2 = AttackCounter(2)
         counter3 = AttackCounter(2)
@@ -114,7 +105,6 @@ class TestAttackPMFInit:
         assert pmf.weight(counter3) == pmap[counter3]
 
     def test_type_error(self) -> None:
-        """Test parameter type errors."""
         items: Any
         with pytest.raises(TypeError):
             items = {"nope": 1}
