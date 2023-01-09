@@ -1,4 +1,4 @@
-"""Unit tests for bones.pmf.PMF class."""
+"""Unit tests for the bones.pmf module."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 

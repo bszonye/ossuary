@@ -1,4 +1,4 @@
-"""Unit tests for bones.warhammer.Profile class."""
+"""Unit tests for the Profile class & subtypes."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 

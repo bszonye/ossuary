@@ -1,4 +1,4 @@
-"""Unit tests for bones.__main__ module."""
+"""Unit tests for the bones.__main__ module."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 

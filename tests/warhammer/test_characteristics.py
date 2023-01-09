@@ -1,10 +1,10 @@
-"""Unit tests for bones.warhammer.Characteristic class & subtypes."""
+"""Unit tests for the Characteristic class & subtypes."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 import pytest
 
-from bones.pmf import D6
+from bones.roll import d6
 from bones.warhammer import RandomizableValue
 
 
@@ -22,7 +22,7 @@ class TestRandomizableValueFactory:
         # TODO: design this API
 
     def test_pmf(self) -> None:
-        RandomizableValue.factory(D6)
+        RandomizableValue.factory(d6)
         # TODO: design this API
 
     def test_error(self) -> None:

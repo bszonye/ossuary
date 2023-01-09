@@ -1,4 +1,4 @@
-"""Unit tests for bones.warhammer.AttackPMF & AttackCounter classes."""
+"""Unit tests for the AttackPMF & AttackCounter classes."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
