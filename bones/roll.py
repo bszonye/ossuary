@@ -4,6 +4,7 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 __all__ = [
     "Dice",
+    "DiceTuple",
     "DiceTuplePMF",
     "Die",
     "d",
@@ -42,14 +43,14 @@ class BaseDie(PMF[ET_co]):
 class Die(BaseDie[int]):
     """Model for rolling a numbered die."""
 
-    def __init__(self, __faces: Iterable[int], /) -> None:
+    def __init__(self, faces: Iterable[int], /) -> None:
         """Initialze the PMF for a die with the given faces."""
-        super().__init__(__faces, normalize=False)
+        super().__init__(faces, normalize=False)
 
     @classmethod
-    def d(cls, __sides: int = 6, /) -> Self:
+    def d(cls, sides: int = 6, /) -> Self:
         """Create a PMF for dX+M."""
-        return cls(range(1, 1 + __sides))
+        return cls(range(1, 1 + sides))
 
 
 # Call d(K) to create the PMF for rolling 1dX.

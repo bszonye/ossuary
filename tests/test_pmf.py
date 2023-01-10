@@ -15,7 +15,7 @@ from bones.pmf import PMF, Weight
 
 class TestPMFInit:
     def test_pmf_default(self) -> None:
-        pmf: PMF[Any] = PMF()
+        pmf = PMF[Any]()
         assert len(pmf) == 0
         assert pmf.mapping == {}
         assert pmf.total == 0
@@ -69,7 +69,7 @@ class TestPMFInit:
 
     def test_pmf_empty(self) -> None:
         # Test normalize parameter on empty PMFs.
-        pmf: PMF[Any] = PMF()
+        pmf = PMF[Any]()
         assert len(pmf) == 0
         assert pmf.total == 0
         assert pmf.mapping == {}

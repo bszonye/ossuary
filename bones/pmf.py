@@ -29,18 +29,19 @@ from collections.abc import (
 )
 from fractions import Fraction
 from types import MappingProxyType
-from typing import Any, cast, Generic, Optional, Self, TypeAlias, TypeVar
+from typing import Any, cast, Self, TypeAlias, TypeVar
 
 # Type variables.
 ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
+_T = TypeVar("_T")
 
 # Type aliases.
-Operator: TypeAlias = Callable[..., Any]  # Operator type.
-Probability: TypeAlias = Fraction  # Probability type.
-Weight: TypeAlias = int  # Weight type.
+Operator: TypeAlias = Callable[..., Any]
+Probability: TypeAlias = Fraction
+Weight: TypeAlias = int
 
 
-class PMF(Generic[ET_co], Collection[ET_co]):
+class PMF(Collection[ET_co]):
     """Generic base class for probability mass functions.
 
     A probability mass function (PMF) associates probabilities with
@@ -76,7 +77,7 @@ class PMF(Generic[ET_co], Collection[ET_co]):
 
     def __init__(
         self,
-        __events: Mapping[ET_co, Weight] | Iterable[ET_co] = (),
+        events: Mapping[ET_co, Weight] | Iterable[ET_co] = (),
         /,
         *,
         normalize: bool = True,
@@ -84,20 +85,20 @@ class PMF(Generic[ET_co], Collection[ET_co]):
         """Initialize PMF object."""
         # Convert input mapping or iterable to a list of pairs.
         pairs: Iterable[tuple[ET_co, Weight]]
-        match __events:
-            case PMF() if type(__events) is type(self):
+        match events:
+            case PMF() if type(events) is type(self):
                 # Copy another PMF of the same type.
                 if not normalize:
-                    self.__weights = __events.__weights
-                    self.__total = __events.__total
+                    self.__weights = events.__weights
+                    self.__total = events.__total
                     return
-                pairs = __events.pairs
+                pairs = events.pairs
             case Mapping():
-                pairs = cast(ItemsView[ET_co, Weight], __events.items())
+                pairs = cast(ItemsView[ET_co, Weight], events.items())
             case Iterable():
-                pairs = ((event, 1) for event in __events)
+                pairs = ((event, 1) for event in events)
             case _:
-                raise TypeError(f"not iterable: {type(__events).__name__!r}")
+                raise TypeError(f"not iterable: {type(events).__name__!r}")
         # Collect event weights.
         weights: dict[ET_co, Weight] = {}
         total = 0
@@ -124,38 +125,38 @@ class PMF(Generic[ET_co], Collection[ET_co]):
         self.__total = total
 
     @classmethod
-    def convert(cls, __object: Any, /) -> Self:
+    def convert(cls, other: Any, /) -> Self:
         """Convert an object to a PMF."""
-        if isinstance(__object, PMF):
+        if isinstance(other, PMF):
             # If the object is already a PMF, convert it to the same
             # subtype (if necessary) and then return it.
-            pmf: PMF[Any] = __object
+            pmf: PMF[Any] = other
             return pmf if type(pmf) is cls else cls(pmf)
         # Otherwise, convert the object to a single-event PMF.
-        weights: dict[ET_co, Weight] = {__object: 1}
+        weights: dict[ET_co, Weight] = {other: 1}
         return cls(weights)
 
-    @property  # TODO: functools.cached_property?
+    @functools.cached_property
     def domain(self) -> Sequence[ET_co]:
         """Return all events defined for the PMF."""
         return tuple(self.mapping)
 
-    @property  # TODO: functools.cached_property?
+    @functools.cached_property
     def support(self) -> Sequence[ET_co]:
         """Return all events with non-zero probability."""
         return tuple(v for v, p in self.mapping.items() if p)
 
-    @property  # TODO: functools.cached_property?
+    @functools.cached_property
     def weights(self) -> Sequence[Weight]:
         """Return all event weights defined for the PMF."""
         return tuple(self.mapping.values())
 
-    @property  # TODO: functools.cached_property?
+    @functools.cached_property
     def pairs(self) -> Sequence[tuple[ET_co, Weight]]:  # TODO: rename?
         """Return all of the (event, weight) pairs."""
         return tuple(self.mapping.items())
 
-    @property  # TODO: functools.cached_property?
+    @functools.cached_property
     def graph(self) -> Sequence[tuple[ET_co, Probability]]:
         """Return all of the (event, probability) pairs."""
         return tuple((v, Fraction(w, self.total)) for v, w in self.mapping.items())
@@ -170,17 +171,17 @@ class PMF(Generic[ET_co], Collection[ET_co]):
         """Provide read-only access to the total probability."""
         return self.__total
 
-    def probability(self, __event: Any, /) -> Probability:
+    def probability(self, event: Any, /) -> Probability:
         """Return the probability of a given event."""
-        weight = self.weight(__event)
+        weight = self.weight(event)
         return Fraction(weight, self.total or 1)
 
     __call__ = probability
 
-    def weight(self, __event: Any, /) -> Weight:
+    def weight(self, event: Any, /) -> Weight:
         """Return the probability weight of a given event."""
         try:
-            weight = self.mapping.get(__event, 0)
+            weight = self.mapping.get(event, 0)
         except TypeError:  # not Hashable
             weight = 0
         return weight
@@ -199,7 +200,7 @@ class PMF(Generic[ET_co], Collection[ET_co]):
         /,
         *,
         align: bool = True,
-        separator: Optional[str] = None,
+        separator: str | None = None,
     ) -> Sequence[str]:
         """Format PMF as a table."""
         # Validate & initialize parameters.
@@ -248,17 +249,17 @@ class PMF(Generic[ET_co], Collection[ET_co]):
 
     @staticmethod
     @functools.cache
-    def _combinations(v: Iterable[ET_co], n: int, /) -> Iterable[tuple[ET_co, ...]]:
+    def _combinations(v: Iterable[ET_co], n: int, /) -> Iterable[Sequence[ET_co]]:
         if n < 0:
             raise ValueError("combinations must be non-negative")
         combos = tuple(itertools.combinations_with_replacement(v, n))
         return combos
 
-    def combinations(self, n: int = 1, /) -> Iterable[tuple[ET_co, ...]]:
+    def combinations(self, n: int = 1, /) -> Iterable[Sequence[ET_co]]:
         """Generate all distinct combinations of N outcomes."""
         return self._combinations(self.domain, n)
 
-    def XXX(self, n: int) -> Self:
+    def XXX(self, n: int) -> Mapping[ET_co, Weight]:
         """Generate the weighted combinations of N outcomes."""
         # TODO: name, return type.
         mapping: dict[Any, Weight] = {}
@@ -268,21 +269,17 @@ class PMF(Generic[ET_co], Collection[ET_co]):
             cperms = multiset_perm(counts)
             cweight = math.prod(self.weight(v) for v in counter.elements())
             mapping[combo] = cperms * cweight
-        # TODO: Self isn't the right return type for this data, because
-        # the map keys are tuples, not ET_co.
-        return type(self)(mapping)
+        return mapping
 
     def times(self, n: int, op: Operator = operator.add) -> Self:
         """Compute the composition of the PMF with itself N times."""
         return self  # TODO: apply operator to weighted combos
 
-    def unary_operator(
-        self, __op: Callable[..., Any], /, *args: Any, **kwargs: Any
-    ) -> Self:
+    def unary_operator(self, op: Operator, /, *args: Any, **kwargs: Any) -> Self:
         """Compute a unary operator over a PMFs."""
         weights: dict[ET_co, Weight] = {}
         for ev, wt in self.pairs:
-            ev = __op(ev, *args, **kwargs)
+            ev = op(ev, *args, **kwargs)
             weights[ev] = weights.setdefault(ev, 0) + wt
         return type(self)(weights)
 
@@ -319,19 +316,19 @@ class PMF(Generic[ET_co], Collection[ET_co]):
         return self.unary_operator(math.ceil)
 
     def binary_operator(
-        self, __other: Self, __op: Callable[..., ET_co], /, *args: Any, **kwargs: Any
+        self, other: Self, op: Operator, /, *args: Any, **kwargs: Any
     ) -> Self:
         """Compute a binary operator between two PMFs."""
         weights: dict[ET_co, Weight] = {}
-        for ev2, wt2 in __other.pairs:
+        for ev2, wt2 in other.pairs:
             for ev1, wt1 in self.pairs:
-                ev = __op(ev1, ev2, *args, **kwargs)
+                ev = op(ev1, ev2, *args, **kwargs)
                 weights[ev] = weights.setdefault(ev, 0) + wt1 * wt2
         return type(self)(weights)
 
-    def __matmul__(self, __other: Any) -> Self:
+    def __matmul__(self, other: Any) -> Self:
         """Compute self @ other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         weights: dict[ET_co, Weight] = {}
         counts = self.unary_operator(int)
         for ev1, wt1 in counts.pairs:
@@ -345,134 +342,121 @@ class PMF(Generic[ET_co], Collection[ET_co]):
                 weights[ev2] = weights.setdefault(ev2, 0) + wt1 * wt2
         return type(self)(weights)
 
-    def __rmatmul__(self, __other: Any) -> Self:
+    def __rmatmul__(self, other: Any) -> Self:
         """Compute other @ self."""
-        other: Self = self.convert(__other)
-        return other.__matmul__(self)
+        return self.convert(other).__matmul__(self)
 
-    def __add__(self, __other: Any) -> Self:
+    def __add__(self, other: Any) -> Self:
         """Compute self + other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         return self.binary_operator(other, operator.add)
 
-    def __radd__(self, __other: Any) -> Self:
+    def __radd__(self, other: Any) -> Self:
         """Compute other + self."""
-        other: Self = self.convert(__other)
-        return other.binary_operator(self, operator.add)
+        return self.convert(other).binary_operator(self, operator.add)
 
-    def __sub__(self, __other: Any) -> Self:
+    def __sub__(self, other: Any) -> Self:
         """Compute self - other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         return self.binary_operator(other, operator.sub)
 
-    def __rsub__(self, __other: Any) -> Self:
+    def __rsub__(self, other: Any) -> Self:
         """Compute other - self."""
-        other: Self = self.convert(__other)
-        return other.binary_operator(self, operator.sub)
+        return self.convert(other).binary_operator(self, operator.sub)
 
-    def __mul__(self, __other: Any) -> Self:
+    def __mul__(self, other: Any) -> Self:
         """Compute self * other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         return self.binary_operator(other, operator.mul)
 
-    def __rmul__(self, __other: Any) -> Self:
+    def __rmul__(self, other: Any) -> Self:
         """Compute other * self."""
-        other: Self = self.convert(__other)
-        return other.binary_operator(self, operator.mul)
+        return self.convert(other).binary_operator(self, operator.mul)
 
-    def __truediv__(self, __other: Any) -> Self:
+    def __truediv__(self, other: Any) -> Self:
         """Compute self / other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         return self.binary_operator(other, operator.truediv)
 
-    def __rtruediv__(self, __other: Any) -> Self:
+    def __rtruediv__(self, other: Any) -> Self:
         """Compute other / self."""
-        other: Self = self.convert(__other)
-        return other.binary_operator(self, operator.truediv)
+        return self.convert(other).binary_operator(self, operator.truediv)
 
-    def __floordiv__(self, __other: Any) -> Self:
+    def __floordiv__(self, other: Any) -> Self:
         """Compute self // other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         return self.binary_operator(other, operator.floordiv)
 
-    def __rfloordiv__(self, __other: Any) -> Self:
+    def __rfloordiv__(self, other: Any) -> Self:
         """Compute other // self."""
-        other: Self = self.convert(__other)
-        return other.binary_operator(self, operator.floordiv)
+        return self.convert(other).binary_operator(self, operator.floordiv)
 
-    def __mod__(self, __other: Any) -> Self:
+    def __mod__(self, other: Any) -> Self:
         """Compute self % other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         return self.binary_operator(other, operator.mod)
 
-    def __rmod__(self, __other: Any) -> Self:
+    def __rmod__(self, other: Any) -> Self:
         """Compute other % self."""
-        other: Self = self.convert(__other)
-        return other.binary_operator(self, operator.mod)
+        return self.convert(other).binary_operator(self, operator.mod)
 
-    def __pow__(self, __other: Any) -> Self:
+    def __pow__(self, other: Any) -> Self:
         """Compute self ** other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         return self.binary_operator(other, operator.pow)
 
-    def __rpow__(self, __other: Any) -> Self:
+    def __rpow__(self, other: Any) -> Self:
         """Compute other ** self."""
-        other: Self = self.convert(__other)
-        return other.binary_operator(self, operator.pow)
+        return self.convert(other).binary_operator(self, operator.pow)
 
-    def __lshift__(self, __other: Any) -> Self:
+    def __lshift__(self, other: Any) -> Self:
         """Compute self << other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         return self.binary_operator(other, operator.lshift)
 
-    def __rlshift__(self, __other: Any) -> Self:
+    def __rlshift__(self, other: Any) -> Self:
         """Compute other << self."""
-        other: Self = self.convert(__other)
-        return other.binary_operator(self, operator.lshift)
+        return self.convert(other).binary_operator(self, operator.lshift)
 
-    def __rshift__(self, __other: Any) -> Self:
+    def __rshift__(self, other: Any) -> Self:
         """Compute self >> other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         return self.binary_operator(other, operator.rshift)
 
-    def __rrshift__(self, __other: Any) -> Self:
+    def __rrshift__(self, other: Any) -> Self:
         """Compute other >> self."""
-        other: Self = self.convert(__other)
-        return other.binary_operator(self, operator.rshift)
+        return self.convert(other).binary_operator(self, operator.rshift)
 
-    def __and__(self, __other: Any) -> Self:
+    def __and__(self, other: Any) -> Self:
         """Compute self & other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         return self.binary_operator(other, operator.and_)
 
-    def __rand__(self, __other: Any) -> Self:
+    def __rand__(self, other: Any) -> Self:
         """Compute other & self."""
-        other: Self = self.convert(__other)
-        return other.binary_operator(self, operator.and_)
+        return self.convert(other).binary_operator(self, operator.and_)
 
-    def __xor__(self, __other: Any) -> Self:
+    def __xor__(self, other: Any) -> Self:
         """Compute self ^ other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         return self.binary_operator(other, operator.xor)
 
-    def __rxor__(self, __other: Any) -> Self:
+    def __rxor__(self, other: Any) -> Self:
         """Compute other ^ self."""
-        other: Self = self.convert(__other)
-        return other.binary_operator(self, operator.xor)
+        return self.convert(other).binary_operator(self, operator.xor)
 
-    def __or__(self, __other: Any) -> Self:
+    def __or__(self, other: Any) -> Self:
         """Compute self | other."""
-        other: Self = self.convert(__other)
+        other = self.convert(other)
         return self.binary_operator(other, operator.or_)
 
-    def __ror__(self, __other: Any) -> Self:
+    def __ror__(self, other: Any) -> Self:
         """Compute other | self."""
-        other: Self = self.convert(__other)
-        return other.binary_operator(self, operator.or_)
+        return self.convert(other).binary_operator(self, operator.or_)
 
-    def __format__(self, __spec: str) -> str:
+    def __format__(self, spec: str) -> str:
         """Format the PMF according to the format spec."""
-        rows = self.tabulate(__spec, align=False)
+        rows = self.tabulate(spec, align=False)
         return "{" + ", ".join(rows) + "}"
 
     def __repr__(self) -> str:
@@ -490,9 +474,9 @@ class PMF(Generic[ET_co], Collection[ET_co]):
         """Format the PMF for printing."""
         return self.__format__("")
 
-    def __contains__(self, __event: Any) -> bool:
+    def __contains__(self, event: Any) -> bool:
         """Test object for membership in the event domain."""
-        return bool(self.mapping.get(__event, 0))
+        return bool(self.mapping.get(event, 0))
 
     def __iter__(self) -> Iterator[ET_co]:
         """Iterate over the event domain."""
@@ -504,13 +488,13 @@ class PMF(Generic[ET_co], Collection[ET_co]):
 
 
 @functools.cache
-def multiset_comb(__n: int, __k: int, /) -> int:
+def multiset_comb(n: int, k: int, /) -> int:
     """Count multiset combinations for k items chosen from n options."""
-    return math.comb(__n + __k - 1, __k)
+    return math.comb(n + k - 1, k)
 
 
 @functools.cache
-def multiset_perm(__iter: Iterable[int], /) -> int:
+def multiset_perm(items: Iterable[int], /) -> int:
     """Count multiset permutations for item counts in k[n].
 
     The iterable parameter provides the sizes of the multiset's
@@ -521,7 +505,7 @@ def multiset_perm(__iter: Iterable[int], /) -> int:
     - N    is the total number of items ∑k[n], and
     - k[n] is the number of items in each equivalence class.
     """
-    k = sorted(tuple(__iter))
+    k = sorted(tuple(items))
     n = sum(k)
     if not n:
         return 0

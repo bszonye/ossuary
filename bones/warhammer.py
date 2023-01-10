@@ -30,7 +30,7 @@ import tomllib
 import unicodedata
 from collections.abc import Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass, Field, fields, InitVar
-from typing import Any, BinaryIO, Optional, overload, Self, TypeAlias
+from typing import Any, BinaryIO, overload, Self, TypeAlias
 
 from .pmf import PMF
 
@@ -53,22 +53,22 @@ class RandomizableValue(Characteristic):
 
     @overload
     @classmethod
-    def factory(cls, __value: NumericSpec, /) -> "NumericValue":
+    def factory(cls, value: NumericSpec, /) -> "NumericValue":
         ...
 
     @overload
     @classmethod
-    def factory(cls, __value: RandomSpec, /) -> "RandomValue":
+    def factory(cls, value: RandomSpec, /) -> "RandomValue":
         ...
 
     @classmethod
-    def factory(cls, __value: NumericSpec | RandomSpec, /) -> "RandomizableValue":
+    def factory(cls, value: NumericSpec | RandomSpec, /) -> "RandomizableValue":
         """Create an appropriate instance from the value given."""
-        match __value:
+        match value:
             case int() | float():
-                return NumericValue(__value)
+                return NumericValue(value)
             case str() | PMF():
-                return RandomValue(__value)
+                return RandomValue(value)
             case _:
                 raise TypeError
 
@@ -76,14 +76,14 @@ class RandomizableValue(Characteristic):
 class NumericValue(RandomizableValue):  # TODO: subclass float or Fraction?
     """A characteristic with a rational numeric value."""
 
-    def __init__(self, __value: NumericSpec, /) -> None:
+    def __init__(self, value: NumericSpec, /) -> None:
         """TODO."""
 
 
 class RandomValue(RandomizableValue):  # TODO: subclass PMF?
     """A characteristic determined by die roll."""
 
-    def __init__(self, __value: RandomSpec, /) -> None:
+    def __init__(self, value: RandomSpec, /) -> None:
         """TODO."""
 
 
@@ -127,16 +127,16 @@ class Profile(NameMapping):
     name: str = "Untitled"
 
     @classmethod
-    def loadmap(cls, __map: NameMapping, /, **defaults: Any) -> Mapping[str, Self]:
+    def loadmap(cls, nmap: NameMapping, /, **defaults: Any) -> Mapping[str, Self]:
         """Construct a new Profile object from a mapping."""
         profiles: dict[str, Self] = {}
         cname = cls.__name__
         fmap = cls.fields()
 
-        # Each value in __map should also be a NameMapping.
+        # Each value in nmap should also be a NameMapping.
         pname: str
         pdata: NameMapping
-        for pname, pdata in __map.items():
+        for pname, pdata in nmap.items():
             pmap: dict[str, Any] = {}
             fname: str
 
@@ -170,23 +170,23 @@ class Profile(NameMapping):
         return profiles
 
     @classmethod
-    def loadf(cls, __fp: BinaryIO, /, **defaults: Any) -> Mapping[str, Self]:
+    def loadf(cls, fp: BinaryIO, /, **defaults: Any) -> Mapping[str, Self]:
         """Construct a new Profile object from a TOML file."""
         # TODO: test this
-        data = tomllib.load(__fp)
+        data = tomllib.load(fp)
         return cls.loadmap(data, **defaults)
 
     @classmethod
-    def loads(cls, __s: str, /, **defaults: Any) -> Mapping[str, Self]:
+    def loads(cls, s: str, /, **defaults: Any) -> Mapping[str, Self]:
         """Construct a new Profile object from a TOML string."""
         # TODO: test this
-        data = tomllib.loads(__s)
+        data = tomllib.loads(s)
         return cls.loadmap(data, **defaults)
 
     @staticmethod
     @functools.cache
     def normalize(
-        __s: str, /, *, connector: str = "_", python: Optional[bool] = None
+        s: str, /, *, connector: str = "_", python: bool | None = None
     ) -> str:
         """Normalize string to an identifier or dictionary key.
 
@@ -205,9 +205,9 @@ class Profile(NameMapping):
         in identifiers.
         """
 
-        def is_xid_continue(__s: str, /) -> bool:
+        def is_xid_continue(s: str, /) -> bool:
             """Check if a string is legal in identifiers."""
-            return ("a" + __s).isidentifier()
+            return ("a" + s).isidentifier()
 
         # Check Python identifier rules.
         if python is None:
@@ -216,7 +216,7 @@ class Profile(NameMapping):
             raise ValueError(f"{connector!r} is not valid in identifiers")
 
         # First, normalize Unicode with NFKC -> casefold -> NFC.
-        norm = unicodedata.normalize("NFKC", __s)
+        norm = unicodedata.normalize("NFKC", s)
         norm = unicodedata.normalize("NFC", norm.casefold())
 
         # Blank all non-identifier characters.  Also blank any existing
@@ -260,26 +260,26 @@ class Profile(NameMapping):
         """Index the class fields by name."""
         return {f.name: f for f in fields(cls)}
 
-    def __getattr__(self, __name: str) -> Any:
+    def __getattr__(self, name: str) -> Any:
         """Look up an attribute by name, with normalization.
 
         Uses Attribute.normalize to convert a human-readable attribute
         name or TOML key to an equivalent Python attribute identifier.
         """
-        name = self.normalize(__name)
+        name = self.normalize(name)
         try:
             return self.__dict__[name]
         except KeyError:
             names = f"attribute {name!r}"
-            if name != __name:
-                names += f"or {__name!r}"
+            if name != name:
+                names += f"or {name!r}"
             error = f"{type(self).__name__!r} object has no {names}"
             raise AttributeError(error, name=name, obj=self) from None
 
-    def __getitem__(self, __key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         """Subscript notation to simplify profile attribute access."""
         try:
-            return getattr(self, __key)
+            return getattr(self, key)
         except AttributeError as ex:
             raise KeyError(*ex.args) from None
 
