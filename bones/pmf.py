@@ -292,7 +292,7 @@ class PMF(Collection[ET_co]):
                 weights[pv] = weights.setdefault(pv, 0) + wt * pwt * pshare
         return type(self)(weights)
 
-    @functools.lru_cache(maxsize=0)
+    @functools.lru_cache
     def times(self, n: int, op: Operator = operator.add, /) -> Self:
         """Fold a PMF with itself to evaluate an n-ary operation."""
         if n < 1:
@@ -304,7 +304,7 @@ class PMF(Collection[ET_co]):
             result = result.binary_operator(self, op)
         return result
 
-    @functools.lru_cache(maxsize=0)
+    @functools.lru_cache
     def rtimes(self, n: int, op: Operator = operator.add, /) -> Self:
         """Right-associative version of the times method."""
         if n < 1:
