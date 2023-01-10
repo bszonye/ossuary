@@ -32,15 +32,9 @@ from typing import Any, Self
 from .pmf import ET_co, multiset_perm, PMF, WT
 
 
+# TODO: Eliminate the separate base class if possible.
 class BaseDie(PMF[ET_co]):
     """Model for rolling a die with arbitrary faces."""
-
-    def combinations(self, __n: int = 1, /) -> Iterable[tuple[ET_co, ...]]:
-        """Generate all distinct combinations for N dice."""
-        if __n < 0:
-            raise ValueError("combinations must be non-negative")
-        # Note that this ignores the weight of repeated faces, if any.
-        return tuple(itertools.combinations_with_replacement(self, __n))
 
 
 class Die(BaseDie[int]):

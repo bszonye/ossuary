@@ -9,9 +9,11 @@ __all__ = [
 ]
 
 import functools
+import itertools
 import math
 import numbers
 import operator
+from collections import Counter
 from collections.abc import (
     Callable,
     Collection,
@@ -20,18 +22,21 @@ from collections.abc import (
     Iterable,
     Iterator,
     Mapping,
+    MutableMapping,
     Sequence,
 )
 from fractions import Fraction
 from types import MappingProxyType
 from typing import Any, cast, Optional, Self, TypeAlias, TypeVar
 
-# PMF input types.
-# TODO: Rename these to EventT and WeightT?
-# TODO: Export the type vars in __all__?
-ET_co = TypeVar("ET_co", covariant=True)  # Event type.
+# TODO: Export these in __all__?
+# Type variables.
+ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
+ET = TypeVar("ET")  # Event type.
+# Type aliases.
 WT: TypeAlias = int  # Weight type.
 PT: TypeAlias = Fraction  # Probability type.
+OT: TypeAlias = Callable[..., Any]  # Operator type.
 
 
 class PMF(Collection[ET_co]):
@@ -64,6 +69,7 @@ class PMF(Collection[ET_co]):
     "weight" methods.
     """
 
+    # TODO: event type check and conversion
     __weights: Mapping[ET_co, WT]
     __total: WT
 
@@ -239,6 +245,39 @@ class PMF(Collection[ET_co]):
             for event in events
         )
 
+    @functools.cached_property
+    def _combinations_cache(self) -> MutableMapping[int, Iterable[tuple[ET_co, ...]]]:
+        return {}
+
+    def combinations(self, __n: int = 1, /) -> Iterable[tuple[ET_co, ...]]:
+        """Generate all distinct combinations of N outcomes."""
+        if __n < 0:
+            raise ValueError("combinations must be non-negative")
+        if __n in self._combinations_cache:
+            return self._combinations_cache[__n]
+
+        combos = tuple(itertools.combinations_with_replacement(self.domain, __n))
+        self._combinations_cache[__n] = combos
+        return combos
+
+    def XXX(self, n: int) -> Self:
+        """Generate the weighted combinations of N outcomes."""
+        # TODO: name, return type.
+        mapping: dict[Any, WT] = {}
+        for combo in self.combinations(n):
+            counter = Counter(combo)
+            counts = tuple(sorted(counter.values()))
+            cperms = multiset_perm(counts)
+            cweight = math.prod(self.weight(v) for v in counter.elements())
+            mapping[combo] = cperms * cweight
+        # TODO: Self isn't the right return type for this data, because
+        # the map keys are tuples, not ET_co.
+        return type(self)(mapping)
+
+    def times(self, n: int, op: OT = operator.add) -> Self:
+        """Compute the composition of the PMF with itself N times."""
+        return self  # TODO: apply operator to weighted combos
+
     def unary_operator(
         self, __op: Callable[..., Any], /, *args: Any, **kwargs: Any
     ) -> Self:
@@ -296,7 +335,8 @@ class PMF(Collection[ET_co]):
         """Compute self @ other."""
         other: Self = self.convert(__other)
         weights: dict[ET_co, WT] = {}
-        for ev1, wt1 in self.pairs:
+        counts = self.unary_operator(int)
+        for ev1, wt1 in counts.pairs:
             count = int(ev1)  # type: ignore
             if count < 1:
                 continue

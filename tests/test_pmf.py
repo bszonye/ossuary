@@ -128,3 +128,169 @@ class TestPMFNormalized:
             assert math.gcd(*weights) == 1
         else:
             assert len(npmf.support) == 0
+
+
+class TestPMFUnaryOperator:
+    ppos = (1, 2, 3)
+    pneg = (-3, -2, -1)
+    pmix = (-2, -1, 0, 1, 2)
+
+    @pytest.mark.parametrize(
+        "events,expect",
+        (
+            (ppos, ((-1, 1), (-2, 1), (-3, 1))),
+            (pneg, ((3, 1), (2, 1), (1, 1))),
+            (pmix, ((2, 1), (1, 1), (0, 1), (-1, 1), (-2, 1))),
+        ),
+    )
+    def test_neg(self, events: Sequence[Any], expect: Sequence[Any]) -> None:
+        pmf = -PMF(events)
+        assert pmf.pairs == expect
+
+    @pytest.mark.parametrize(
+        "events,expect",
+        (
+            (ppos, ((1, 1), (2, 1), (3, 1))),
+            (pneg, ((-3, 1), (-2, 1), (-1, 1))),
+            (pmix, ((-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1))),
+        ),
+    )
+    def test_pos(self, events: Sequence[Any], expect: Sequence[Any]) -> None:
+        pmf = +PMF(events)
+        assert pmf.pairs == expect
+
+    @pytest.mark.parametrize(
+        "events,expect",
+        (
+            (ppos, ((1, 1), (2, 1), (3, 1))),
+            (pneg, ((3, 1), (2, 1), (1, 1))),
+            (pmix, ((2, 2), (1, 2), (0, 1))),
+        ),
+    )
+    def test_abs(self, events: Sequence[Any], expect: Sequence[Any]) -> None:
+        pmf = abs(PMF(events))
+        assert pmf.pairs == expect
+
+    @pytest.mark.parametrize(
+        "events,expect",
+        (
+            (ppos, ((-2, 1), (-3, 1), (-4, 1))),
+            (pneg, ((2, 1), (1, 1), (0, 1))),
+            (pmix, ((1, 1), (0, 1), (-1, 1), (-2, 1), (-3, 1))),
+        ),
+    )
+    def test_invert(self, events: Sequence[Any], expect: Sequence[Any]) -> None:
+        pmf = ~PMF(events)
+        assert pmf.pairs == expect
+
+    def test_round(self) -> None:
+        pfloat = tuple(x / 8 for x in range(-12, 13))
+        pmf = PMF(pfloat)
+        assert round(pmf).pairs == (
+            (-2, 1),
+            (-1, 7),
+            (0, 9),
+            (1, 7),
+            (2, 1),
+        )
+
+    def test_round_n(self) -> None:
+        pfives = tuple(x * 5 for x in range(11))
+        pmf = PMF(pfives)
+        assert round(pmf, -1).pairs == (
+            (0, 2),
+            (10, 1),
+            (20, 3),
+            (30, 1),
+            (40, 3),
+            (50, 1),
+        )
+
+    def test_trunc(self) -> None:
+        pfloat = tuple(x / 8 for x in range(-12, 13))
+        pmf = PMF(pfloat)
+        assert math.trunc(pmf).pairs == (
+            (-1, 1),
+            (0, 3),
+            (1, 1),
+        )
+
+    def test_floor(self) -> None:
+        pfloat = tuple(x / 8 for x in range(-12, 13))
+        pmf = PMF(pfloat)
+        assert math.floor(pmf).pairs == (
+            (-2, 4),
+            (-1, 8),
+            (0, 8),
+            (1, 5),
+        )
+
+    def test_ceil(self) -> None:
+        pfloat = tuple(x / 8 for x in range(-12, 13))
+        pmf = PMF(pfloat)
+        assert math.ceil(pmf).pairs == (
+            (-1, 5),
+            (0, 8),
+            (1, 8),
+            (2, 4),
+        )
+
+
+class TestPMFBinaryOperator:
+    def test_matmul(self) -> None:
+        d3 = PMF((1, 2, 3))
+        assert (2 @ d3).pairs == (
+            (2, 1),
+            (3, 2),
+            (4, 3),
+            (5, 2),
+            (6, 1),
+        )
+        assert (d3 @ 2).pairs == (
+            (2, 1),
+            (4, 1),
+            (6, 1),
+        )
+        p1 = 1 @ d3
+        p2 = 2 @ d3
+        p3 = 3 @ d3
+        d3d3 = d3 @ d3
+        assert d3d3.support == (1, 2, 3, 4, 5, 6, 7, 8, 9)
+        for v, p in d3d3.graph:
+            assert p == p1(v) / 3 + p2(v) / 3 + p3(v) / 3
+
+    def test_add(self) -> None:
+        pass  # TODO
+
+    def test_sub(self) -> None:
+        pass  # TODO
+
+    def test_mul(self) -> None:
+        pass  # TODO
+
+    def test_truediv(self) -> None:
+        pass  # TODO
+
+    def test_floordiv(self) -> None:
+        pass  # TODO
+
+    def test_mod(self) -> None:
+        pass  # TODO
+
+    def test_pow(self) -> None:
+        pass  # TODO
+
+    def test_lshift(self) -> None:
+        pass  # TODO
+
+    def test_rshift(self) -> None:
+        pass  # TODO
+
+    def test_and(self) -> None:
+        pass  # TODO
+
+    def test_xor(self) -> None:
+        pass  # TODO
+
+    def test_or(self) -> None:
+        pass  # TODO
