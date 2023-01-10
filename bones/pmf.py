@@ -16,6 +16,7 @@ import itertools
 import math
 import numbers
 import operator
+import typing
 from collections import Counter
 from collections.abc import (
     Callable,
@@ -33,7 +34,6 @@ from typing import Any, cast, Self, TypeAlias, TypeVar
 
 # Type variables.
 ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
-_T = TypeVar("_T")
 
 # Type aliases.
 Operator: TypeAlias = Callable[..., Any]
@@ -50,16 +50,16 @@ class PMF(Collection[ET_co]):
     Probability spaces model randomness as a triplet (Ω, Σ, P):
 
     * Ω, the sample space, which is the set of all outcomes.
-    * Σ, the event space, which groups sets of outcomes for analysis.
+    * Σ, the event space, which groups outcomes into sets for analysis.
     * P, a function that associates a probability with every event.
 
-    Outcomes are the specific results of a random process, and events
-    are sets of outcomes grouped for analysis.  For example, given a
-    deck of 52 cards, a single card draw has 52 possible outcomes.
-    Events can include one outcome ("draw the queen of hearts") or many
-    ("draw any odd-numbered card").  The singletons are called
-    elementary events, and they're often used interchangeably with the
-    corresponding outcome.
+    Outcomes are the specific results of a random process.  For example,
+    given a deck of 52 playing cards, a single draw has 52 outcomes.
+
+    Events are interesting sets of outcomes.  They can comprise one
+    outcome ("draw the queen of hearts") or many ("draw any odd-numbered
+    card").  The singletons are called elementary events, and they're
+    often used interchangeably with the corresponding outcome.
 
     Probability functions assign probabilities to events, and a PMF
     typically maps all of the elementary events in the event space.  For
@@ -156,11 +156,6 @@ class PMF(Collection[ET_co]):
         """Return all of the (event, weight) pairs."""
         return tuple(self.mapping.items())
 
-    @functools.cached_property
-    def graph(self) -> Sequence[tuple[ET_co, Probability]]:
-        """Return all of the (event, probability) pairs."""
-        return tuple((v, Fraction(w, self.total)) for v, w in self.mapping.items())
-
     @property
     def mapping(self) -> Mapping[ET_co, Weight]:
         """Provide read-only access to the probability mapping."""
@@ -170,6 +165,11 @@ class PMF(Collection[ET_co]):
     def total(self) -> Weight:
         """Provide read-only access to the total probability."""
         return self.__total
+
+    @functools.cached_property
+    def graph(self) -> Sequence[tuple[ET_co, Probability]]:
+        """Return all of the (event, probability) pairs."""
+        return tuple((v, Fraction(w, self.total)) for v, w in self.mapping.items())
 
     def probability(self, event: Any, /) -> Probability:
         """Return the probability of a given event."""
@@ -247,33 +247,49 @@ class PMF(Collection[ET_co]):
             for event in events
         )
 
-    @staticmethod
-    @functools.cache
-    def _combinations(v: Iterable[ET_co], n: int, /) -> Iterable[Sequence[ET_co]]:
+    @functools.lru_cache
+    def combinations(self, n: int, /) -> Iterable[Sequence[ET_co]]:
+        """Generate all distinct combinations of N outcomes."""
         if n < 0:
             raise ValueError("combinations must be non-negative")
-        combos = tuple(itertools.combinations_with_replacement(v, n))
+        combos = tuple(itertools.combinations_with_replacement(self.domain, n))
         return combos
 
-    def combinations(self, n: int = 1, /) -> Iterable[Sequence[ET_co]]:
-        """Generate all distinct combinations of N outcomes."""
-        return self._combinations(self.domain, n)
-
-    def XXX(self, n: int) -> Mapping[ET_co, Weight]:
-        """Generate the weighted combinations of N outcomes."""
-        # TODO: name, return type.
-        mapping: dict[Any, Weight] = {}
+    @functools.lru_cache
+    def combination_weight_mapping(self, n: int) -> Mapping[Sequence[ET_co], Weight]:
+        """Generate a weight mapping for the combinations method."""
+        weights: dict[Sequence[ET_co], Weight] = {}
         for combo in self.combinations(n):
             counter = Counter(combo)
             counts = tuple(sorted(counter.values()))
             cperms = multiset_perm(counts)
             cweight = math.prod(self.weight(v) for v in counter.elements())
-            mapping[combo] = cperms * cweight
-        return mapping
+            weights[combo] = cperms * cweight
+        return MappingProxyType(weights)
 
-    def times(self, n: int, op: Operator = operator.add) -> Self:
-        """Compute the composition of the PMF with itself N times."""
-        return self  # TODO: apply operator to weighted combos
+    @functools.lru_cache(maxsize=0)
+    def times(self, n: int, op: Operator = operator.add, /) -> Self:
+        """Fold a PMF with itself to evaluate an n-ary operation."""
+        if n < 1:
+            raise ValueError("repetitions must be strictly positive")
+        if n == 1:
+            return self
+        result = self.binary_operator(self, op)
+        for _ in range(2, n):
+            result = result.binary_operator(self, op)
+        return result
+
+    @functools.lru_cache(maxsize=0)
+    def rtimes(self, n: int, op: Operator = operator.add, /) -> Self:
+        """Right-associative version of the times method."""
+        if n < 1:
+            raise ValueError("repetitions must be strictly positive")
+        if n == 1:
+            return self
+        result = self.binary_operator(self, op)
+        for _ in range(2, n):
+            result = self.binary_operator(result, op)
+        return result
 
     def unary_operator(self, op: Operator, /, *args: Any, **kwargs: Any) -> Self:
         """Compute a unary operator over a PMFs."""
@@ -344,6 +360,8 @@ class PMF(Collection[ET_co]):
 
     def __rmatmul__(self, other: Any) -> Self:
         """Compute other @ self."""
+        if isinstance(other, typing.SupportsInt):
+            return self.times(int(other))
         return self.convert(other).__matmul__(self)
 
     def __add__(self, other: Any) -> Self:
@@ -485,6 +503,14 @@ class PMF(Collection[ET_co]):
     def __len__(self) -> int:
         """Return the number of discrete values in the mapping."""
         return len(self.mapping)
+
+    @functools.cached_property
+    def _hash(self) -> int:
+        return hash(self.pairs)
+
+    def __hash__(self) -> int:
+        """Calculate a hash value from the (event, weight) pairs."""
+        return self._hash
 
 
 @functools.cache
