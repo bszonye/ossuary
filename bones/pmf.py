@@ -256,7 +256,7 @@ class PMF(Collection[ET_co]):
         return combos
 
     @functools.lru_cache
-    def combination_weight_mapping(self, n: int) -> Mapping[Sequence[ET_co], Weight]:
+    def combination_weights(self, n: int) -> Mapping[Sequence[ET_co], Weight]:
         """Generate a weight mapping for the combinations method."""
         weights: dict[Sequence[ET_co], Weight] = {}
         for combo in self.combinations(n):
@@ -266,6 +266,31 @@ class PMF(Collection[ET_co]):
             cweight = math.prod(self.weight(v) for v in counter.elements())
             weights[combo] = cperms * cweight
         return MappingProxyType(weights)
+
+    def map(self, f: Operator, /) -> Self:
+        """Map events through a callable."""
+        weights: dict[ET_co, Weight] = {}
+        events: list[tuple[Any, Weight]] = []
+        totals: list[int] = []
+        # Get the mapped values.
+        for ev, wt in self.pairs:
+            mv = f(ev)
+            events.append((mv, wt))
+            if isinstance(mv, PMF):
+                totals.append(mv.total)
+        # Find a common weight multiplier for PMF results.
+        share = math.lcm(*totals)
+        # Determine new weights for everything.
+        for mv, wt in events:
+            if not isinstance(mv, PMF):
+                weights[mv] = weights.setdefault(mv, 0) + wt * share
+                continue
+            # Unpack PMFs.
+            mv = cast(Self, mv)  # assume a compatible PMF
+            pshare = share // mv.total
+            for pv, pwt in mv.pairs:
+                weights[pv] = weights.setdefault(pv, 0) + wt * pwt * pshare
+        return type(self)(weights)
 
     @functools.lru_cache(maxsize=0)
     def times(self, n: int, op: Operator = operator.add, /) -> Self:
@@ -345,18 +370,7 @@ class PMF(Collection[ET_co]):
     def __matmul__(self, other: Any) -> Self:
         """Compute self @ other."""
         other = self.convert(other)
-        weights: dict[ET_co, Weight] = {}
-        counts = self.unary_operator(int)
-        for ev1, wt1 in counts.pairs:
-            count = int(ev1)  # type: ignore
-            if count < 1:
-                continue
-            pmf = other
-            for _ in range(count - 1):
-                pmf = pmf + other
-            for ev2, wt2 in pmf.pairs:
-                weights[ev2] = weights.setdefault(ev2, 0) + wt1 * wt2
-        return type(self)(weights)
+        return self.map(other.times)
 
     def __rmatmul__(self, other: Any) -> Self:
         """Compute other @ self."""
