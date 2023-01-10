@@ -51,9 +51,9 @@ class Die(BaseDie[int]):
         super().__init__(__faces, normalize=False)
 
     @classmethod
-    def d(cls, __sides: int = 6, __mod: int = 0, /) -> Self:
+    def d(cls, __sides: int = 6, /) -> Self:
         """Create a PMF for dX+M."""
-        return cls(range(1 + __mod, 1 + __mod + __sides))
+        return cls(range(1, 1 + __sides))
 
 
 # Call d(K) to create the PMF for rolling 1dX.
@@ -72,9 +72,9 @@ d30 = d(30)
 d100 = d(100)
 d1000 = d(1000)
 
-d00 = d(100, -1)  # D100 counted from zero.
-d000 = d(1000, -1)  # D1000 counted from zero.
-dF = d(3, -2)  # Fate/Fudge dice.
+d00 = d(100) - 1  # D100 counted from zero.
+d000 = d(1000) - 1  # D1000 counted from zero.
+dF = d(3) - 2  # Fate/Fudge dice.
 
 
 class Dice(Collection[ET_co]):

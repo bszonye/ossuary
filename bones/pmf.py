@@ -11,7 +11,9 @@ __all__ = [
 import functools
 import math
 import numbers
+import operator
 from collections.abc import (
+    Callable,
     Collection,
     Hashable,
     ItemsView,
@@ -113,6 +115,18 @@ class PMF(Collection[ET_co]):
         # Initialize attributes.
         self.__weights = MappingProxyType(weights)
         self.__total = total
+
+    @classmethod
+    def convert(cls, __object: Any, /) -> Self:
+        """Convert an object to a PMF."""
+        if isinstance(__object, PMF):
+            # If the object is already a PMF, convert it to the same
+            # subtype (if necessary) and then return it.
+            pmf: PMF[Any] = __object
+            return pmf if type(pmf) is cls else cls(pmf)
+        # Otherwise, convert the object to a single-event PMF.
+        weights: dict[ET_co, WT] = {__object: 1}
+        return cls(weights)
 
     @property  # TODO: functools.cached_property?
     def domain(self) -> Sequence[ET_co]:
@@ -224,6 +238,199 @@ class PMF(Collection[ET_co]):
             )
             for event in events
         )
+
+    def unary_operator(
+        self, __op: Callable[..., Any], /, *args: Any, **kwargs: Any
+    ) -> Self:
+        """Compute a unary operator over a PMFs."""
+        weights: dict[ET_co, WT] = {}
+        for ev, wt in self.pairs:
+            ev = __op(ev, *args, **kwargs)
+            weights[ev] = weights.setdefault(ev, 0) + wt
+        return type(self)(weights)
+
+    def __neg__(self) -> Self:
+        """Compute -self."""
+        return self.unary_operator(operator.neg)
+
+    def __pos__(self) -> Self:
+        """Compute +self."""
+        return self.unary_operator(operator.pos)
+
+    def __abs__(self) -> Self:
+        """Compute abs(self)."""
+        return self.unary_operator(operator.abs)
+
+    def __invert__(self) -> Self:
+        """Compute ~self."""
+        return self.unary_operator(operator.invert)
+
+    def __round__(self, ndigits: int | None = None) -> Self:
+        """Compute round(self)."""
+        return self.unary_operator(round, ndigits=ndigits)
+
+    def __trunc__(self) -> Self:
+        """Compute math.trunc(self)."""
+        return self.unary_operator(math.trunc)
+
+    def __floor__(self) -> Self:
+        """Compute math.floor(self)."""
+        return self.unary_operator(math.floor)
+
+    def __ceil__(self) -> Self:
+        """Compute math.ceil(self)."""
+        return self.unary_operator(math.ceil)
+
+    def binary_operator(
+        self, __other: Self, __op: Callable[..., ET_co], /, *args: Any, **kwargs: Any
+    ) -> Self:
+        """Compute a binary operator between two PMFs."""
+        weights: dict[ET_co, WT] = {}
+        for ev2, wt2 in __other.pairs:
+            for ev1, wt1 in self.pairs:
+                ev = __op(ev1, ev2, *args, **kwargs)
+                weights[ev] = weights.setdefault(ev, 0) + wt1 * wt2
+        return type(self)(weights)
+
+    def __matmul__(self, __other: Any) -> Self:
+        """Compute self @ other."""
+        other: Self = self.convert(__other)
+        weights: dict[ET_co, WT] = {}
+        for ev1, wt1 in self.pairs:
+            count = int(ev1)  # type: ignore
+            if count < 1:
+                continue
+            pmf = other
+            for _ in range(count - 1):
+                pmf = pmf + other
+            for ev2, wt2 in pmf.pairs:
+                weights[ev2] = weights.setdefault(ev2, 0) + wt1 * wt2
+        return type(self)(weights)
+
+    def __rmatmul__(self, __other: Any) -> Self:
+        """Compute other @ self."""
+        other: Self = self.convert(__other)
+        return other.__matmul__(self)
+
+    def __add__(self, __other: Any) -> Self:
+        """Compute self + other."""
+        other: Self = self.convert(__other)
+        return self.binary_operator(other, operator.add)
+
+    def __radd__(self, __other: Any) -> Self:
+        """Compute other + self."""
+        other: Self = self.convert(__other)
+        return other.binary_operator(self, operator.add)
+
+    def __sub__(self, __other: Any) -> Self:
+        """Compute self - other."""
+        other: Self = self.convert(__other)
+        return self.binary_operator(other, operator.sub)
+
+    def __rsub__(self, __other: Any) -> Self:
+        """Compute other - self."""
+        other: Self = self.convert(__other)
+        return other.binary_operator(self, operator.sub)
+
+    def __mul__(self, __other: Any) -> Self:
+        """Compute self * other."""
+        other: Self = self.convert(__other)
+        return self.binary_operator(other, operator.mul)
+
+    def __rmul__(self, __other: Any) -> Self:
+        """Compute other * self."""
+        other: Self = self.convert(__other)
+        return other.binary_operator(self, operator.mul)
+
+    def __truediv__(self, __other: Any) -> Self:
+        """Compute self / other."""
+        other: Self = self.convert(__other)
+        return self.binary_operator(other, operator.truediv)
+
+    def __rtruediv__(self, __other: Any) -> Self:
+        """Compute other / self."""
+        other: Self = self.convert(__other)
+        return other.binary_operator(self, operator.truediv)
+
+    def __floordiv__(self, __other: Any) -> Self:
+        """Compute self // other."""
+        other: Self = self.convert(__other)
+        return self.binary_operator(other, operator.floordiv)
+
+    def __rfloordiv__(self, __other: Any) -> Self:
+        """Compute other // self."""
+        other: Self = self.convert(__other)
+        return other.binary_operator(self, operator.floordiv)
+
+    def __mod__(self, __other: Any) -> Self:
+        """Compute self % other."""
+        other: Self = self.convert(__other)
+        return self.binary_operator(other, operator.mod)
+
+    def __rmod__(self, __other: Any) -> Self:
+        """Compute other % self."""
+        other: Self = self.convert(__other)
+        return other.binary_operator(self, operator.mod)
+
+    def __pow__(self, __other: Any) -> Self:
+        """Compute self ** other."""
+        other: Self = self.convert(__other)
+        return self.binary_operator(other, operator.pow)
+
+    def __rpow__(self, __other: Any) -> Self:
+        """Compute other ** self."""
+        other: Self = self.convert(__other)
+        return other.binary_operator(self, operator.pow)
+
+    def __lshift__(self, __other: Any) -> Self:
+        """Compute self << other."""
+        other: Self = self.convert(__other)
+        return self.binary_operator(other, operator.lshift)
+
+    def __rlshift__(self, __other: Any) -> Self:
+        """Compute other << self."""
+        other: Self = self.convert(__other)
+        return other.binary_operator(self, operator.lshift)
+
+    def __rshift__(self, __other: Any) -> Self:
+        """Compute self >> other."""
+        other: Self = self.convert(__other)
+        return self.binary_operator(other, operator.rshift)
+
+    def __rrshift__(self, __other: Any) -> Self:
+        """Compute other >> self."""
+        other: Self = self.convert(__other)
+        return other.binary_operator(self, operator.rshift)
+
+    def __and__(self, __other: Any) -> Self:
+        """Compute self & other."""
+        other: Self = self.convert(__other)
+        return self.binary_operator(other, operator.and_)
+
+    def __rand__(self, __other: Any) -> Self:
+        """Compute other & self."""
+        other: Self = self.convert(__other)
+        return other.binary_operator(self, operator.and_)
+
+    def __xor__(self, __other: Any) -> Self:
+        """Compute self ^ other."""
+        other: Self = self.convert(__other)
+        return self.binary_operator(other, operator.xor)
+
+    def __rxor__(self, __other: Any) -> Self:
+        """Compute other ^ self."""
+        other: Self = self.convert(__other)
+        return other.binary_operator(self, operator.xor)
+
+    def __or__(self, __other: Any) -> Self:
+        """Compute self | other."""
+        other: Self = self.convert(__other)
+        return self.binary_operator(other, operator.or_)
+
+    def __ror__(self, __other: Any) -> Self:
+        """Compute other | self."""
+        other: Self = self.convert(__other)
+        return other.binary_operator(self, operator.or_)
 
     def __format__(self, __spec: str) -> str:
         """Format the PMF according to the format spec."""
