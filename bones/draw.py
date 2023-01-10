@@ -2,9 +2,9 @@
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
-from typing import Generic
+from typing import Generic, TypeVar
 
-from .pmf import ET_co
+ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
 
 
 class Bag(Generic[ET_co]):

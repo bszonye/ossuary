@@ -4,7 +4,7 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 from collections import Counter
 
-from bones.pmf import WT
+from bones.pmf import Weight
 from bones.warhammer import AttackCounter, AttackPMF
 
 
@@ -48,7 +48,7 @@ class TestAttackPMFInit:
         counter1 = AttackCounter(1)
         counter2 = AttackCounter(2)
         counter3 = AttackCounter(3)
-        pmap: dict[AttackCounter, WT] = {
+        pmap: dict[AttackCounter, Weight] = {
             counter1: 3,
             counter2: 2,
             counter3: 1,
@@ -63,7 +63,7 @@ class TestAttackPMFInit:
         counter1 = AttackCounter(1)
         counter2 = AttackCounter(2)
         counter3 = AttackCounter(2)
-        pmap: dict[AttackCounter, WT] = {
+        pmap: dict[AttackCounter, Weight] = {
             counter1: 3,
             counter2: 2,
             counter3: 1,

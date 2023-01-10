@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from bones.pmf import PMF, WT
+from bones.pmf import PMF, Weight
 
 
 class TestPMFInit:
@@ -109,7 +109,9 @@ class TestPMFNormalized:
     }
 
     @pytest.mark.parametrize("weights, int_weight", weights.items())
-    def test_normalized_default(self, weights: Sequence[WT], int_weight: int) -> None:
+    def test_normalized_default(
+        self, weights: Sequence[Weight], int_weight: int
+    ) -> None:
         # Test the default parameters with various item weights.
         items = {i: weights[i] for i in range(len(weights))}
         pmf = PMF(items)

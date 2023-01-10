@@ -27,9 +27,11 @@ import itertools
 import math
 from collections import Counter
 from collections.abc import Collection, Iterable
-from typing import Any, Self
+from typing import Any, Self, TypeVar
 
-from .pmf import ET_co, multiset_perm, PMF, WT
+from .pmf import multiset_perm, PMF, Weight
+
+ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
 
 
 # TODO: Eliminate the separate base class if possible.
@@ -95,7 +97,7 @@ class DiceTuplePMF(PMF[DiceTuple]):
     @classmethod
     def NdX(cls, n: int = 1, die: Die = d6) -> Self:
         """Create the PMF for rolling and adding several dice."""
-        mapping: dict[Any, WT] = {}
+        mapping: dict[Any, Weight] = {}
         for combo in die.combinations(n):
             counter = Counter(combo)
             counts = tuple(sorted(counter.values()))
@@ -156,7 +158,7 @@ class DiceTuplePMF(PMF[DiceTuple]):
         # preserve the input order and to accommodate non-comparable die
         # values.  For example, this enumerates three six-sided dice
         # numerically from (0, 0, 0) to (5, 5, 5).
-        pweight: dict[DiceTuple, WT] = {}
+        pweight: dict[DiceTuple, Weight] = {}
         for icombo in itertools.combinations_with_replacement(range(nfaces), keep):
             # Get the range of face numbers.
             low = icombo[0]
@@ -215,7 +217,7 @@ class DiceTuplePMF(PMF[DiceTuple]):
 
     def sum(self) -> PMF[int]:
         """Sum the dice in each roll and return the resulting PMF."""
-        pmf: dict[int, WT] = {}
+        pmf: dict[int, Weight] = {}
         for combo, count in self.mapping.items():
             total = sum(tuple(combo))
             pmf.setdefault(total, 0)

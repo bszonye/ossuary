@@ -3,7 +3,10 @@
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 __all__ = [
+    "Operator",
     "PMF",
+    "Probability",
+    "Weight",
     "multiset_comb",
     "multiset_perm",
 ]
@@ -22,24 +25,22 @@ from collections.abc import (
     Iterable,
     Iterator,
     Mapping,
-    MutableMapping,
     Sequence,
 )
 from fractions import Fraction
 from types import MappingProxyType
-from typing import Any, cast, Optional, Self, TypeAlias, TypeVar
+from typing import Any, cast, Generic, Optional, Self, TypeAlias, TypeVar
 
-# TODO: Export these in __all__?
 # Type variables.
 ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
-ET = TypeVar("ET")  # Event type.
+
 # Type aliases.
-WT: TypeAlias = int  # Weight type.
-PT: TypeAlias = Fraction  # Probability type.
-OT: TypeAlias = Callable[..., Any]  # Operator type.
+Operator: TypeAlias = Callable[..., Any]  # Operator type.
+Probability: TypeAlias = Fraction  # Probability type.
+Weight: TypeAlias = int  # Weight type.
 
 
-class PMF(Collection[ET_co]):
+class PMF(Generic[ET_co], Collection[ET_co]):
     """Generic base class for probability mass functions.
 
     A probability mass function (PMF) associates probabilities with
@@ -70,19 +71,19 @@ class PMF(Collection[ET_co]):
     """
 
     # TODO: event type check and conversion
-    __weights: Mapping[ET_co, WT]
-    __total: WT
+    __weights: Mapping[ET_co, Weight]
+    __total: Weight
 
     def __init__(
         self,
-        __events: Mapping[ET_co, WT] | Iterable[ET_co] = (),
+        __events: Mapping[ET_co, Weight] | Iterable[ET_co] = (),
         /,
         *,
         normalize: bool = True,
     ) -> None:
         """Initialize PMF object."""
         # Convert input mapping or iterable to a list of pairs.
-        pairs: Iterable[tuple[ET_co, WT]]
+        pairs: Iterable[tuple[ET_co, Weight]]
         match __events:
             case PMF() if type(__events) is type(self):
                 # Copy another PMF of the same type.
@@ -92,13 +93,13 @@ class PMF(Collection[ET_co]):
                     return
                 pairs = __events.pairs
             case Mapping():
-                pairs = cast(ItemsView[ET_co, WT], __events.items())
+                pairs = cast(ItemsView[ET_co, Weight], __events.items())
             case Iterable():
                 pairs = ((event, 1) for event in __events)
             case _:
                 raise TypeError(f"not iterable: {type(__events).__name__!r}")
         # Collect event weights.
-        weights: dict[ET_co, WT] = {}
+        weights: dict[ET_co, Weight] = {}
         total = 0
         for ev, wt in pairs:
             # Check parameter types and values.
@@ -131,7 +132,7 @@ class PMF(Collection[ET_co]):
             pmf: PMF[Any] = __object
             return pmf if type(pmf) is cls else cls(pmf)
         # Otherwise, convert the object to a single-event PMF.
-        weights: dict[ET_co, WT] = {__object: 1}
+        weights: dict[ET_co, Weight] = {__object: 1}
         return cls(weights)
 
     @property  # TODO: functools.cached_property?
@@ -145,38 +146,38 @@ class PMF(Collection[ET_co]):
         return tuple(v for v, p in self.mapping.items() if p)
 
     @property  # TODO: functools.cached_property?
-    def weights(self) -> Sequence[WT]:
+    def weights(self) -> Sequence[Weight]:
         """Return all event weights defined for the PMF."""
         return tuple(self.mapping.values())
 
     @property  # TODO: functools.cached_property?
-    def pairs(self) -> Sequence[tuple[ET_co, WT]]:  # TODO: rename?
+    def pairs(self) -> Sequence[tuple[ET_co, Weight]]:  # TODO: rename?
         """Return all of the (event, weight) pairs."""
         return tuple(self.mapping.items())
 
     @property  # TODO: functools.cached_property?
-    def graph(self) -> Sequence[tuple[ET_co, PT]]:
+    def graph(self) -> Sequence[tuple[ET_co, Probability]]:
         """Return all of the (event, probability) pairs."""
         return tuple((v, Fraction(w, self.total)) for v, w in self.mapping.items())
 
     @property
-    def mapping(self) -> Mapping[ET_co, WT]:
+    def mapping(self) -> Mapping[ET_co, Weight]:
         """Provide read-only access to the probability mapping."""
         return self.__weights
 
     @property
-    def total(self) -> WT:
+    def total(self) -> Weight:
         """Provide read-only access to the total probability."""
         return self.__total
 
-    def probability(self, __event: Any, /) -> PT:
+    def probability(self, __event: Any, /) -> Probability:
         """Return the probability of a given event."""
         weight = self.weight(__event)
         return Fraction(weight, self.total or 1)
 
     __call__ = probability
 
-    def weight(self, __event: Any, /) -> WT:
+    def weight(self, __event: Any, /) -> Weight:
         """Return the probability weight of a given event."""
         try:
             weight = self.mapping.get(__event, 0)
@@ -245,25 +246,22 @@ class PMF(Collection[ET_co]):
             for event in events
         )
 
-    @functools.cached_property
-    def _combinations_cache(self) -> MutableMapping[int, Iterable[tuple[ET_co, ...]]]:
-        return {}
-
-    def combinations(self, __n: int = 1, /) -> Iterable[tuple[ET_co, ...]]:
-        """Generate all distinct combinations of N outcomes."""
-        if __n < 0:
+    @staticmethod
+    @functools.cache
+    def _combinations(v: Iterable[ET_co], n: int, /) -> Iterable[tuple[ET_co, ...]]:
+        if n < 0:
             raise ValueError("combinations must be non-negative")
-        if __n in self._combinations_cache:
-            return self._combinations_cache[__n]
-
-        combos = tuple(itertools.combinations_with_replacement(self.domain, __n))
-        self._combinations_cache[__n] = combos
+        combos = tuple(itertools.combinations_with_replacement(v, n))
         return combos
+
+    def combinations(self, n: int = 1, /) -> Iterable[tuple[ET_co, ...]]:
+        """Generate all distinct combinations of N outcomes."""
+        return self._combinations(self.domain, n)
 
     def XXX(self, n: int) -> Self:
         """Generate the weighted combinations of N outcomes."""
         # TODO: name, return type.
-        mapping: dict[Any, WT] = {}
+        mapping: dict[Any, Weight] = {}
         for combo in self.combinations(n):
             counter = Counter(combo)
             counts = tuple(sorted(counter.values()))
@@ -274,7 +272,7 @@ class PMF(Collection[ET_co]):
         # the map keys are tuples, not ET_co.
         return type(self)(mapping)
 
-    def times(self, n: int, op: OT = operator.add) -> Self:
+    def times(self, n: int, op: Operator = operator.add) -> Self:
         """Compute the composition of the PMF with itself N times."""
         return self  # TODO: apply operator to weighted combos
 
@@ -282,7 +280,7 @@ class PMF(Collection[ET_co]):
         self, __op: Callable[..., Any], /, *args: Any, **kwargs: Any
     ) -> Self:
         """Compute a unary operator over a PMFs."""
-        weights: dict[ET_co, WT] = {}
+        weights: dict[ET_co, Weight] = {}
         for ev, wt in self.pairs:
             ev = __op(ev, *args, **kwargs)
             weights[ev] = weights.setdefault(ev, 0) + wt
@@ -324,7 +322,7 @@ class PMF(Collection[ET_co]):
         self, __other: Self, __op: Callable[..., ET_co], /, *args: Any, **kwargs: Any
     ) -> Self:
         """Compute a binary operator between two PMFs."""
-        weights: dict[ET_co, WT] = {}
+        weights: dict[ET_co, Weight] = {}
         for ev2, wt2 in __other.pairs:
             for ev1, wt1 in self.pairs:
                 ev = __op(ev1, ev2, *args, **kwargs)
@@ -334,7 +332,7 @@ class PMF(Collection[ET_co]):
     def __matmul__(self, __other: Any) -> Self:
         """Compute self @ other."""
         other: Self = self.convert(__other)
-        weights: dict[ET_co, WT] = {}
+        weights: dict[ET_co, Weight] = {}
         counts = self.unary_operator(int)
         for ev1, wt1 in counts.pairs:
             count = int(ev1)  # type: ignore
