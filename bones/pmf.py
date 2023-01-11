@@ -236,23 +236,63 @@ class PMF(Collection[ET_co]):
         )
         return self._from_pairs(pairs, normalize=normalize)
 
+    def quantiles(self, n: int, /) -> Sequence[Sequence[ET_co]]:
+        """Partition the domain into equally likely groups.
+
+        Quantiles divide a probability distribution into continuous,
+        equal intervals.  The term can refer either to the cut points or
+        the equal groups; this method returns the groups.  If there is
+        an exact median and an even number of groups, this method places
+        the median into the upper group.
+        """
+        if n < 1:
+            raise ValueError("quantiles must be strictly positive")
+        if n == 1:  # all in one group
+            return (self.domain,)
+
+        groups: list[list[ET_co]] = [[] for _ in range(n)]
+
+        pairs = iter(self.pairs)
+        acc = 0
+        try:
+            ev, wt = next(pairs)
+            for q in range(n):
+                # Find the cutoff point for the current group.
+                limit, frac = divmod(self.total * (q + 1), n)
+                upper = n // 2 < q + 1  # does this group end above the median?
+                if frac and upper:
+                    limit += 1
+                while acc + wt <= limit or upper and acc < limit:
+                    acc += wt
+                    groups[q].append(ev)
+                    ev, wt = next(pairs)
+        except StopIteration:
+            pass
+        assert acc == self.total
+
+        return tuple(tuple(group) for group in groups)
+
     @staticmethod
     def plot_color(
-        p: Probability | float,
-        pmax: Probability | float = 1.0,
-        pmin: Probability | float = 0.0,
+        p: float,
+        pmax: float = 1.0,
+        pmin: float = 0.0,
+        center: bool = False,
     ) -> tuple[float, float, float]:
         """Convert a probability into an RGB color."""
-        strength = float((p - pmin) / (pmax - pmin))
-        hue = 0.75 * (1.0 - strength)  # red is high, violet is low
-        sat = 1.0
-        val = 1.0  # abs(hue - 0.5) * 0.5 + 0.75  # dim bright colors
-        r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
+        strength = 0.5 if pmax == pmin else float((p - pmin) / (pmax - pmin))
+        hue = (
+            (0.60 * strength + 0.7) % 1.0  # blue to red to green
+            if center
+            else 0.75 * (1.0 - strength)  # violet to red
+        )
+        r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
         return (r, 0.85 * g, b)
 
     def plot(
         self,
         *,
+        quantiles: int = 0,
         vformat: str = "",
         precision: int = 2,
         window_title: str = "bones",
@@ -275,9 +315,23 @@ class PMF(Collection[ET_co]):
         vlabels = tuple(format(v, vformat) for v in domain)
         plabels = tuple(f"{100*p:.{precision}f}" for p in image)
 
-        imax = max(image)
-        imin = min(image)
-        color = tuple(self.plot_color(i, imax, imin) for i in image)
+        color: tuple[tuple[float, float, float], ...]
+        if quantiles:
+            groups = self.quantiles(quantiles)
+            color = tuple()
+            cmax = float(quantiles - (quantiles % 2))
+            cmid = cmax / 2
+            for i in range(quantiles):
+                # Create a palette from blue to red to green.
+                # Avoid the center unless the quantile is the median.
+                p = i + (1 if cmax == quantiles and cmid <= i else 0)
+                print(f"{i=} {p=} {cmax=}")
+                qcolor = self.plot_color(p, cmax, center=True)
+                color = color + (qcolor,) * len(groups[i])
+        else:
+            imax = max(image)
+            imin = min(image)
+            color = tuple(self.plot_color(i, imax, imin) for i in image)
         edge = tuple((0.6 * r, 0.6 * g, 0.6 * b) for r, g, b in color)
 
         chart = ax.bar(
