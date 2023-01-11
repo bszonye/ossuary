@@ -13,13 +13,15 @@ __all__ = ["plot_demo", "main"]
 import sys
 
 from .pmf import PMF
+from .roll import d6
 
 
 def plot_demo() -> None:
     """Show placeholder demos."""
     if sys.__stdout__.isatty():  # pragma: no cover
-        spectrum = {x: x for x in range(1, 21)}
-        PMF(spectrum).plot()
+        (3 @ d6).plot()
+        spectrum = {x: x for x in range(1, 31)}
+        PMF(spectrum)  # .plot()
 
 
 def main() -> None:

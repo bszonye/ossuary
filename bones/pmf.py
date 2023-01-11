@@ -84,7 +84,7 @@ class PMF(Collection[ET_co]):
         normalize: bool = True,
     ) -> None:
         """Initialize PMF object."""
-        # Convert input mapping or iterable to a list of pairs.
+        # Convert input to iterable (event, weight) pairs.
         pairs: Iterable[tuple[ET_co, Weight]]
         match events:
             case PMF() if type(events) is type(self):
@@ -100,6 +100,21 @@ class PMF(Collection[ET_co]):
                 pairs = ((event, 1) for event in events)
             case _:
                 raise TypeError(f"not iterable: {type(events).__name__!r}")
+        # Finish initializion from the (event, weight) pairs.
+        self._from_pairs(pairs, pmf=self, normalize=normalize)
+
+    @classmethod
+    def _from_pairs(
+        cls,
+        pairs: Iterable[tuple[ET_co, Weight]],
+        /,
+        pmf: Self | None = None,
+        normalize: bool = True,
+    ) -> Self:
+        """Construct a new PMF from (event, weight) pairs."""
+        # Create the instance if it doesn't already exist.
+        if pmf is None:
+            pmf = cls.__new__(cls)
         # Collect event weights.
         weights: dict[ET_co, Weight] = {}
         total = 0
@@ -122,8 +137,14 @@ class PMF(Collection[ET_co]):
                     weights[event] //= factor
                 total //= factor
         # Initialize attributes.
-        self.__weights = MappingProxyType(weights)
-        self.__total = total
+        pmf.__weights = MappingProxyType(weights)
+        pmf.__total = total
+        return pmf
+
+    @classmethod
+    def _from_iterable(cls, events: Iterable[ET_co], /) -> Self:
+        """Create a new PMF from an {event: weight} mapping."""
+        return cls._from_pairs((ev, 1) for ev in events)
 
     @classmethod
     def convert(cls, other: Any, /) -> Self:
@@ -200,6 +221,20 @@ class PMF(Collection[ET_co]):
         """Create a shallow copy."""
         return type(self)(self, normalize=False)
 
+    def sorted(
+        self,
+        *,
+        key: Operator | None = None,
+        reverse: bool = False,
+        normalize: bool = False,
+    ) -> Self:
+        """Create a sorted copy."""
+        events: Sequence[Any] = self.domain  # assume event type is sortable
+        pairs = (
+            (ev, self.weight(ev)) for ev in sorted(events, key=key, reverse=reverse)
+        )
+        return self._from_pairs(pairs, normalize=normalize)
+
     @staticmethod
     def plot_color(
         p: Probability | float,
@@ -217,6 +252,8 @@ class PMF(Collection[ET_co]):
     def plot(
         self,
         *,
+        vformat: str = "",
+        precision: int = 2,
         window_title: str = "bones",
     ) -> None:
         """Display the PMF with matplotlib."""
@@ -231,19 +268,28 @@ class PMF(Collection[ET_co]):
         # To temporarily change plot style, use this context manager.
         # with plt.rc_context({"axes.labelsize": 20}):
         domain = self.domain
-        image = tuple(float(p) for p in self.image)
-        labels = tuple(f"{100 * p:.2f}" for p in image)
+        image = tuple(float(self(v)) for v in domain)
+
+        precision = max(0, precision)
+        vlabels = tuple(format(v, vformat) for v in domain)
+        plabels = tuple(f"{100*p:.{precision}f}" for p in image)
 
         imax = max(image)
         imin = min(image)
         color = tuple(self.plot_color(i, imax, imin) for i in image)
-        edge = tuple((0.5 * r, 0.5 * g, 0.5 * b) for r, g, b in color)
+        edge = tuple((0.6 * r, 0.6 * g, 0.6 * b) for r, g, b in color)
 
-        chart = ax.bar(domain, image, color=color, edgecolor=edge)
+        chart = ax.bar(
+            x=range(len(self)),
+            height=image,
+            tick_label=vlabels,
+            color=color,
+            edgecolor=edge,
+        )
         ax.set_xlabel("Events")
         ax.set_ylabel("Probability")
         # ax.legend(title="TODO")
-        ax.bar_label(chart, labels=labels, padding=1, fontsize="x-small")
+        ax.bar_label(chart, labels=plabels, padding=1, fontsize="x-small")
 
         plt.show()
 
@@ -343,7 +389,7 @@ class PMF(Collection[ET_co]):
             pshare = share // mv.total
             for pv, pwt in mv.pairs:
                 weights[pv] = weights.setdefault(pv, 0) + wt * pwt * pshare
-        return type(self)(weights)
+        return self._from_pairs(weights.items())
 
     @functools.lru_cache
     def times(self, n: int, op: Operator = operator.add, /) -> Self:
@@ -375,7 +421,7 @@ class PMF(Collection[ET_co]):
         for ev, wt in self.pairs:
             ev = op(ev, *args, **kwargs)
             weights[ev] = weights.setdefault(ev, 0) + wt
-        return type(self)(weights)
+        return self._from_pairs(weights.items())
 
     def __neg__(self) -> Self:
         """Compute -self."""
@@ -418,7 +464,7 @@ class PMF(Collection[ET_co]):
             for ev1, wt1 in self.pairs:
                 ev = op(ev1, ev2, *args, **kwargs)
                 weights[ev] = weights.setdefault(ev, 0) + wt1 * wt2
-        return type(self)(weights)
+        return self._from_pairs(weights.items())
 
     def __matmul__(self, other: Any) -> Self:
         """Compute self @ other."""

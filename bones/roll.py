@@ -26,6 +26,7 @@ __all__ = [
 
 import itertools
 import math
+import typing
 from collections import Counter
 from collections.abc import Collection, Iterable
 from typing import Any, Self, TypeVar
@@ -43,18 +44,16 @@ class BaseDie(PMF[ET_co]):
 class Die(BaseDie[int]):
     """Model for rolling a numbered die."""
 
-    def __init__(self, faces: Iterable[int], /) -> None:
+    def __init__(self, faces: Iterable[int] | int = 6, /) -> None:
         """Initialze the PMF for a die with the given faces."""
+        if isinstance(faces, typing.SupportsInt):
+            sides = int(faces)
+            faces = range(1, 1 + sides)
         super().__init__(faces, normalize=False)
-
-    @classmethod
-    def d(cls, sides: int = 6, /) -> Self:
-        """Create a PMF for dX+M."""
-        return cls(range(1, 1 + sides))
 
 
 # Call d(K) to create the PMF for rolling 1dX.
-d = Die.d
+d = Die
 
 # Common die sizes.
 d2 = d(2)
