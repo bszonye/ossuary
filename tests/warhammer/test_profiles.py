@@ -12,23 +12,23 @@ from bones.warhammer import Profile
 
 # Simple class hierarchy to test attribute inheritance.
 @dataclass
-class SubProfileA(Profile):  # noqa: D101
+class SubProfileA(Profile):
     test_a: int = 0
 
 
 @dataclass
-class SubProfileB(Profile):  # noqa: D101
+class SubProfileB(Profile):
     test_b1: str = ""
     test_b2: str = ""
 
 
 @dataclass
-class SubProfileC(Profile):  # noqa: D101
+class SubProfileC(Profile):
     pass  # No extra class attributes in this one.
 
 
 @dataclass
-class SubProfileABC(SubProfileA, SubProfileB, SubProfileC):  # noqa: D101
+class SubProfileABC(SubProfileA, SubProfileB, SubProfileC):
     test_abc: float = 1.0
 
 

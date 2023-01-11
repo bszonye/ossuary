@@ -266,12 +266,12 @@ class Profile(NameMapping):
         Uses Attribute.normalize to convert a human-readable attribute
         name or TOML key to an equivalent Python attribute identifier.
         """
-        name = self.normalize(name)
+        norm = self.normalize(name)
         try:
-            return self.__dict__[name]
+            return self.__dict__[norm]
         except KeyError:
-            names = f"attribute {name!r}"
-            if name != name:
+            names = f"attribute {norm!r}"
+            if norm != name:
                 names += f"or {name!r}"
             error = f"{type(self).__name__!r} object has no {names}"
             raise AttributeError(error, name=name, obj=self) from None
