@@ -167,6 +167,11 @@ class PMF(Collection[ET_co]):
         return self.__total
 
     @functools.cached_property
+    def image(self) -> Sequence[Probability]:
+        """Return all event probabilities."""
+        return tuple(Fraction(w, self.total) for w in self.weights)
+
+    @functools.cached_property
     def graph(self) -> Sequence[tuple[ET_co, Probability]]:
         """Return all of the (event, probability) pairs."""
         return tuple((v, Fraction(w, self.total)) for v, w in self.mapping.items())
@@ -193,6 +198,23 @@ class PMF(Collection[ET_co]):
     def copy(self) -> Self:
         """Create a shallow copy."""
         return type(self)(self, normalize=False)
+
+    def plot(self) -> None:
+        """Display the PMF with matplotlib."""
+        try:
+            from matplotlib import pyplot as plt
+        except ImportError:  # pragma: no cover
+            return
+        fig, ax = plt.subplots()
+        domain = self.domain
+        image = self.image
+        ax.bar(domain, image)
+        # ax.ylabel("Probability")
+        # ax.title("Hits")
+        plt.show()
+        # if sys.__stdout__.isatty():  # pragma: no cover
+        #     plt.ion()
+        #     plt.show(block=True)
 
     def tabulate(
         self,
