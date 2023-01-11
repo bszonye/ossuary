@@ -12,19 +12,14 @@ __all__ = ["plot_demo", "main"]
 
 import sys
 
-from .roll import d6
+from .pmf import PMF
 
 
 def plot_demo() -> None:
     """Show placeholder demos."""
-    try:
-        import matplotlib as mpl
-    except ImportError:  # pragma: no cover
-        return
-
     if sys.__stdout__.isatty():  # pragma: no cover
-        (3 @ d6).plot()
-        print(mpl.backends.backend)
+        spectrum = {x: x for x in range(1, 21)}
+        PMF(spectrum).plot()
 
 
 def main() -> None:

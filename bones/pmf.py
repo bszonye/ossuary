@@ -11,6 +11,7 @@ __all__ = [
     "multiset_perm",
 ]
 
+import colorsys
 import functools
 import itertools
 import math
@@ -199,22 +200,52 @@ class PMF(Collection[ET_co]):
         """Create a shallow copy."""
         return type(self)(self, normalize=False)
 
-    def plot(self) -> None:
+    @staticmethod
+    def plot_color(
+        p: Probability | float,
+        pmax: Probability | float = 1.0,
+        pmin: Probability | float = 0.0,
+    ) -> tuple[float, float, float]:
+        """Convert a probability into an RGB color."""
+        strength = float((p - pmin) / (pmax - pmin))
+        hue = 0.75 * (1.0 - strength)  # red is high, violet is low
+        sat = 1.0
+        val = 1.0  # abs(hue - 0.5) * 0.5 + 0.75  # dim bright colors
+        r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
+        return (r, 0.85 * g, b)
+
+    def plot(
+        self,
+        *,
+        window_title: str = "bones",
+    ) -> None:
         """Display the PMF with matplotlib."""
         try:
             from matplotlib import pyplot as plt
         except ImportError:  # pragma: no cover
             return
+
         fig, ax = plt.subplots()
+        fig.canvas.manager.set_window_title(window_title)
+
+        # To temporarily change plot style, use this context manager.
+        # with plt.rc_context({"axes.labelsize": 20}):
         domain = self.domain
-        image = self.image
-        ax.bar(domain, image)
-        # ax.ylabel("Probability")
-        # ax.title("Hits")
+        image = tuple(float(p) for p in self.image)
+        labels = tuple(f"{100 * p:.2f}" for p in image)
+
+        imax = max(image)
+        imin = min(image)
+        color = tuple(self.plot_color(i, imax, imin) for i in image)
+        edge = tuple((0.5 * r, 0.5 * g, 0.5 * b) for r, g, b in color)
+
+        chart = ax.bar(domain, image, color=color, edgecolor=edge)
+        ax.set_xlabel("Events")
+        ax.set_ylabel("Probability")
+        # ax.legend(title="TODO")
+        ax.bar_label(chart, labels=labels, padding=1, fontsize="x-small")
+
         plt.show()
-        # if sys.__stdout__.isatty():  # pragma: no cover
-        #     plt.ion()
-        #     plt.show(block=True)
 
     def tabulate(
         self,
