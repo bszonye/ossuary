@@ -215,11 +215,11 @@ class DiceTuplePMF(PMF[DiceTuple]):
             pweight[vcombo] = weight
         return cls(pweight)
 
-    def sum(self) -> PMF[int]:
+    def sum(self) -> Die:
         """Sum the dice in each roll and return the resulting PMF."""
-        pmf: dict[int, Weight] = {}
+        weights: dict[int, Weight] = {}
         for combo, count in self.mapping.items():
             total = sum(tuple(combo))
-            pmf.setdefault(total, 0)
-            pmf[total] += count
-        return PMF(pmf)
+            weights.setdefault(total, 0)
+            weights[total] += count
+        return Die._from_pairs(weights.items())

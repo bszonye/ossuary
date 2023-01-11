@@ -101,20 +101,20 @@ class PMF(Collection[ET_co]):
             case _:
                 raise TypeError(f"not iterable: {type(events).__name__!r}")
         # Finish initializion from the (event, weight) pairs.
-        self._from_pairs(pairs, pmf=self, normalize=normalize)
+        self._from_pairs(pairs, instance=self, normalize=normalize)
 
     @classmethod
     def _from_pairs(
         cls,
         pairs: Iterable[tuple[ET_co, Weight]],
         /,
-        pmf: Self | None = None,
+        instance: Self | None = None,
         normalize: bool = True,
     ) -> Self:
         """Construct a new PMF from (event, weight) pairs."""
         # Create the instance if it doesn't already exist.
-        if pmf is None:
-            pmf = cls.__new__(cls)
+        if instance is None:
+            instance = cls.__new__(cls)
         # Collect event weights.
         weights: dict[ET_co, Weight] = {}
         total = 0
@@ -137,14 +137,15 @@ class PMF(Collection[ET_co]):
                     weights[event] //= factor
                 total //= factor
         # Initialize attributes.
-        pmf.__weights = MappingProxyType(weights)
-        pmf.__total = total
-        return pmf
+        instance.__weights = MappingProxyType(weights)
+        instance.__total = total
+        return instance
 
     @classmethod
     def _from_iterable(cls, events: Iterable[ET_co], /) -> Self:
         """Create a new PMF from an {event: weight} mapping."""
-        return cls._from_pairs((ev, 1) for ev in events)
+        pairs = ((ev, 1) for ev in events)
+        return cls._from_pairs(pairs, normalize=False)
 
     @classmethod
     def convert(cls, other: Any, /) -> Self:
