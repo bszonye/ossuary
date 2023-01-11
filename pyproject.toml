@@ -91,10 +91,6 @@ includes = ["bones"]
 # pipx install pre-commit
 # pipx install pydocstyle
 
-types = [
-    "mypy @ git+https://github.com/python/mypy.git",
-    "pyright",
-]
 test = [
     "pytest",
     "pytest-cov",
@@ -134,6 +130,7 @@ files = "."
 strict = true
 warn_no_return = true
 warn_unreachable = true
+python_executable = ".venv/bin/python"
 
 [tool.pyright]
 typeCheckingMode = "strict"
@@ -142,6 +139,8 @@ exclude = ["**/node_modules", "**/__pycache__", "**/.*"]
 stubPath = "stubs"
 pythonVersion = "3.11"
 pythonPlatform = "All"
+venvPath = "."
+venv = ".venv"
 
 [tool.pytest.ini_options]
 addopts = "--cov=bones --cov-report=term-missing:skip-covered --cov-report=html"
