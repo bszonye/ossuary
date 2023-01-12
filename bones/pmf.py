@@ -287,19 +287,20 @@ class PMF(Collection[ET_co]):
         center: bool = False,
     ) -> tuple[float, float, float]:
         """Convert a probability into an RGB color."""
-        strength = 0.5 if pmax == pmin else float((p - pmin) / (pmax - pmin))
-        hue = (
-            (0.60 * strength + 0.7) % 1.0  # blue to red to green
-            if center
-            else 0.75 * (1.0 - strength)  # violet to red
-        )
+        strength = 1.0 if pmax == pmin else float((p - pmin) / (pmax - pmin))
+        if center:  # blue to red to green
+            strength -= 0.5 if pmax != pmin else 1.0
+            hue = 0.6 * strength
+        else:  # violet to red
+            hue = 0.75 * (1.0 - strength)
+        hue %= 1.0
         r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
         return (r, 0.8 * g, 0.8 * b)
 
     def plot(
         self,
         *,
-        quantiles: int = -1,
+        quantiles: int | None = -1,
         vformat: str = "",
         precision: int = 2,
         window_title: str = "bones",
@@ -323,18 +324,16 @@ class PMF(Collection[ET_co]):
         plabels = tuple(f"{100*p:.{precision}f}" for p in image)
 
         color: tuple[tuple[float, float, float], ...]
-        if quantiles < 0:
-            quantiles = min(10, len(domain))
+        if quantiles and quantiles < 0:
+            quantiles = min(4, len(domain))
+            if quantiles % 2 != len(domain) % 2:
+                quantiles += 1
         if quantiles:
             groups = self.quantiles(quantiles)
             color = tuple()
-            cmax = float(quantiles - (quantiles % 2))
-            cmid = cmax / 2
             for i in range(quantiles):
                 # Create a palette from blue to red to green.
-                # Avoid the center unless the quantile is the median.
-                p = i + (1 if cmax == quantiles and cmid <= i else 0)
-                qcolor = self.plot_color(p, cmax, center=True)
+                qcolor = self.plot_color(i, quantiles - 1, center=True)
                 color = color + (qcolor,) * len(groups[i])
         else:
             imax = max(image)
@@ -351,7 +350,6 @@ class PMF(Collection[ET_co]):
         )
         ax.set_xlabel("Events")
         ax.set_ylabel("Probability")
-        # ax.legend(title="TODO")
         ax.bar_label(chart, labels=plabels, padding=1, fontsize="x-small")
 
         plt.show()
