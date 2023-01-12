@@ -253,7 +253,7 @@ class PMF(Collection[ET_co]):
         groups: list[list[ET_co]] = [[] for _ in range(n)]
 
         # Scale sizes to the least common multiple to avoid rounding.
-        total = math.lcm(self.total, n)
+        total = math.lcm(2 * self.total, n)
         scale = total // self.total
         bucket = total // n
 
@@ -264,7 +264,11 @@ class PMF(Collection[ET_co]):
             wt *= scale
             for q in range(n):
                 limit = bucket * (q + 1)
-                while acc + wt // 2 < limit:
+                while (midpoint := acc + wt // 2) <= limit:
+                    # If a quantile falls exactly in the middle of an
+                    # event, round toward the center for symmetry.
+                    if midpoint == limit and 2 * limit <= total:
+                        break
                     acc += wt
                     groups[q].append(ev)
                     ev, wt = next(pairs)
@@ -290,7 +294,7 @@ class PMF(Collection[ET_co]):
             else 0.75 * (1.0 - strength)  # violet to red
         )
         r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
-        return (r, 0.85 * g, b)
+        return (r, 0.8 * g, 0.8 * b)
 
     def plot(
         self,
