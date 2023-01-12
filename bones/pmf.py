@@ -282,26 +282,54 @@ class PMF(Collection[ET_co]):
     @staticmethod
     def plot_color(
         p: float,
+        /,
+        *,
         pmax: float = 1.0,
         pmin: float = 0.0,
-        center: bool = False,
+        cmin: float = 0.75,
+        cmax: float = 0.0,
     ) -> tuple[float, float, float]:
         """Convert a probability into an RGB color."""
-        strength = 1.0 if pmax == pmin else float((p - pmin) / (pmax - pmin))
-        if center:  # blue to red to green
-            strength -= 0.5 if pmax != pmin else 1.0
-            arc = 240 / 360
-            hue = arc * strength
-        else:  # violet to red
-            hue = 0.75 * (1.0 - strength)
+
+        def lightness(r: float, g: float, b: float) -> float:
+            return 87098 / 409605 * r + 175762 / 245763 * g + 12673 / 175545 * b
+
+        def invert(c: Sequence[float]) -> Sequence[float]:
+            return tuple(1.0 - x for x in c)
+
+        def lighten(L0: float, L1: float, c: Sequence[float]) -> Sequence[float]:
+            if L0 < L1:
+                c = invert(tuple(x * (1 - L1) / (1 - L0) for x in invert(c)))
+            return c
+
+        def darken(L0: float, L1: float, c: Sequence[float]) -> Sequence[float]:
+            if L1 < L0:
+                c = tuple(x * L1 / L0 for x in c)
+            return c
+
+        t = float((p - pmin) / (pmax - pmin)) if pmax != pmin else 0.5
+        hue = (cmax - cmin) * t + cmin
+        # Widen CMY and narrow RGB to smooth color transitions.
+        # hue += math.sin(6.0 * math.pi * hue) / 36.0
         hue %= 1.0
-        r, g, b = colorsys.hls_to_rgb(hue, 0.5, 1.0)
-        return (r, 0.8 * g, 0.9 * b)
+        r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+        Lstar = lightness(r, g, b)
+        if Lstar < 0.5:
+            # Lighten dark colors.
+            Lnew = Lstar + (0.5 - Lstar) * 0.4
+            print(f"{360*hue:.0f} {Lstar=:.3f} {Lnew=:.3f}")
+            r, g, b = lighten(Lstar, Lnew, (r, g, b))
+        elif 0.5 < Lstar:
+            # Dim bright colors, with a partial exception for yellows.
+            yellow = 1.0 - 6.0 * abs(min(hue, 1 / 3) - (1 / 6))
+            Lnew = 0.5 + 0.33 * yellow
+            r, g, b = darken(Lstar, Lnew, (r, g, b))
+        return r, g, b
 
     def plot(
         self,
         *,
-        quantiles: int | None = -1,
+        q: int | None = -1,
         vformat: str = "",
         precision: int = 2,
         window_title: str = "bones",
@@ -319,17 +347,18 @@ class PMF(Collection[ET_co]):
         # with plt.rc_context({"axes.labelsize": 20}):
         domain = self.domain
         image = tuple(float(self(v)) for v in domain)
+        n = len(domain)
 
         precision = max(0, precision)
         vlabels = tuple(format(v, vformat) for v in domain)
         plabels = tuple(f"{100*p:.{precision}f}" for p in image)
 
         color: tuple[tuple[float, float, float], ...]
+        quantiles = q or 0
         if quantiles and quantiles < 0:
-            nev = len(domain)
-            if nev < 4:
-                quantiles = nev or 1
-            elif nev % 2 or divmod(nev, 5)[1] == 0:
+            if n < 4:
+                quantiles = n or 1
+            elif n % 2 or divmod(n, 5)[1] == 0:
                 quantiles = 5
             else:
                 quantiles = 4
@@ -337,17 +366,23 @@ class PMF(Collection[ET_co]):
             groups = self.quantiles(quantiles)
             color = tuple()
             for i in range(quantiles):
-                # Create a palette from blue to red to green.
-                qcolor = self.plot_color(i, quantiles - 1, center=True)
+                # Color quantiles from blue to red to green.
+                qmax = quantiles - quantiles % 2
+                hues = min(max(210, 45 * qmax), 285)
+                # print(f"{hues=} {hues/(qmax or 1)}")
+                cmin = (0 - hues / 2) / 360
+                cmax = (0 + hues / 2) / 360
+                qcolor = self.plot_color(i, pmax=qmax, cmin=cmin, cmax=cmax)
                 color = color + (qcolor,) * len(groups[i])
         else:
-            imax = max(image)
-            imin = min(image)
-            color = tuple(self.plot_color(i, imax, imin) for i in image)
+            # Color probabilities from violet to red.
+            color = tuple(
+                self.plot_color(i, pmin=min(image), pmax=max(image)) for i in image
+            )
         edge = tuple((0.6 * r, 0.6 * g, 0.6 * b) for r, g, b in color)
 
         chart = ax.bar(
-            x=range(len(self)),
+            x=range(n),
             height=image,
             tick_label=vlabels,
             color=color,
