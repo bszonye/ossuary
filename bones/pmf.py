@@ -288,6 +288,7 @@ class PMF(Collection[ET_co]):
         pmin: float = 0.0,
         cmin: float = 0.75,
         cmax: float = 0.0,
+        outliers: bool = False,
     ) -> tuple[float, float, float]:
         """Convert a probability into an RGB color."""
 
@@ -317,13 +318,14 @@ class PMF(Collection[ET_co]):
         if Lstar < 0.5:
             # Lighten dark colors.
             Lnew = Lstar + (0.5 - Lstar) * 0.4
-            print(f"{360*hue:.0f} {Lstar=:.3f} {Lnew=:.3f}")
             r, g, b = lighten(Lstar, Lnew, (r, g, b))
         elif 0.5 < Lstar:
             # Dim bright colors, with a partial exception for yellows.
             yellow = 1.0 - 6.0 * abs(min(hue, 1 / 3) - (1 / 6))
             Lnew = 0.5 + 0.33 * yellow
             r, g, b = darken(Lstar, Lnew, (r, g, b))
+        if outliers and p in (pmin, pmax):
+            r, g, b = darken(1.0, 0.65, (r, g, b))
         return r, g, b
 
     def plot(
@@ -356,30 +358,33 @@ class PMF(Collection[ET_co]):
         color: tuple[tuple[float, float, float], ...]
         quantiles = q or 0
         if quantiles and quantiles < 0:
-            if n < 4:
+            if n < 6:
                 quantiles = n or 1
-            elif n % 2 or divmod(n, 5)[1] == 0:
-                quantiles = 5
-            else:
+            elif 18 <= n:
+                quantiles = 10
+            elif n in (6, 8):
                 quantiles = 4
+            else:
+                quantiles = 5
         if quantiles:
             groups = self.quantiles(quantiles)
             color = tuple()
             for i in range(quantiles):
                 # Color quantiles from blue to red to green.
-                qmax = quantiles - quantiles % 2
-                hues = min(max(210, 45 * qmax), 285)
-                # print(f"{hues=} {hues/(qmax or 1)}")
+                qmax = quantiles - 1  # quantiles % 2
+                hues = min(max(180, 30 * qmax), 285)
                 cmin = (0 - hues / 2) / 360
                 cmax = (0 + hues / 2) / 360
-                qcolor = self.plot_color(i, pmax=qmax, cmin=cmin, cmax=cmax)
+                qcolor = self.plot_color(
+                    i, pmax=qmax, cmin=cmin, cmax=cmax, outliers=(10 <= quantiles)
+                )
                 color = color + (qcolor,) * len(groups[i])
         else:
             # Color probabilities from violet to red.
             color = tuple(
                 self.plot_color(i, pmin=min(image), pmax=max(image)) for i in image
             )
-        edge = tuple((0.6 * r, 0.6 * g, 0.6 * b) for r, g, b in color)
+        edge = tuple((0.65 * r, 0.65 * g, 0.65 * b) for r, g, b in color)
 
         chart = ax.bar(
             x=range(n),
