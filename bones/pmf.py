@@ -290,12 +290,13 @@ class PMF(Collection[ET_co]):
         strength = 1.0 if pmax == pmin else float((p - pmin) / (pmax - pmin))
         if center:  # blue to red to green
             strength -= 0.5 if pmax != pmin else 1.0
-            hue = 0.6 * strength
+            arc = 240 / 360
+            hue = arc * strength
         else:  # violet to red
             hue = 0.75 * (1.0 - strength)
         hue %= 1.0
-        r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
-        return (r, 0.8 * g, 0.8 * b)
+        r, g, b = colorsys.hls_to_rgb(hue, 0.5, 1.0)
+        return (r, 0.8 * g, 0.9 * b)
 
     def plot(
         self,
@@ -325,9 +326,13 @@ class PMF(Collection[ET_co]):
 
         color: tuple[tuple[float, float, float], ...]
         if quantiles and quantiles < 0:
-            quantiles = min(4, len(domain))
-            if quantiles % 2 != len(domain) % 2:
-                quantiles += 1
+            nev = len(domain)
+            if nev < 4:
+                quantiles = nev or 1
+            elif nev % 2 or divmod(nev, 5)[1] == 0:
+                quantiles = 5
+            else:
+                quantiles = 4
         if quantiles:
             groups = self.quantiles(quantiles)
             color = tuple()
