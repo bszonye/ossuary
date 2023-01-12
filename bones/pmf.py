@@ -252,23 +252,26 @@ class PMF(Collection[ET_co]):
 
         groups: list[list[ET_co]] = [[] for _ in range(n)]
 
+        # Scale sizes to the least common multiple to avoid rounding.
+        total = math.lcm(self.total, n)
+        scale = total // self.total
+        bucket = total // n
+
         pairs = iter(self.pairs)
         acc = 0
         try:
             ev, wt = next(pairs)
+            wt *= scale
             for q in range(n):
-                # Find the cutoff point for the current group.
-                limit, frac = divmod(self.total * (q + 1), n)
-                upper = n // 2 < q + 1  # does this group end above the median?
-                if frac and upper:
-                    limit += 1
-                while acc + wt <= limit or upper and acc < limit:
+                limit = bucket * (q + 1)
+                while acc + wt // 2 < limit:
                     acc += wt
                     groups[q].append(ev)
                     ev, wt = next(pairs)
+                    wt *= scale
         except StopIteration:
             pass
-        assert acc == self.total
+        assert acc == total
 
         return tuple(tuple(group) for group in groups)
 
@@ -292,7 +295,7 @@ class PMF(Collection[ET_co]):
     def plot(
         self,
         *,
-        quantiles: int = 0,
+        quantiles: int = -1,
         vformat: str = "",
         precision: int = 2,
         window_title: str = "bones",
@@ -316,6 +319,8 @@ class PMF(Collection[ET_co]):
         plabels = tuple(f"{100*p:.{precision}f}" for p in image)
 
         color: tuple[tuple[float, float, float], ...]
+        if quantiles < 0:
+            quantiles = min(10, len(domain))
         if quantiles:
             groups = self.quantiles(quantiles)
             color = tuple()
@@ -325,7 +330,6 @@ class PMF(Collection[ET_co]):
                 # Create a palette from blue to red to green.
                 # Avoid the center unless the quantile is the median.
                 p = i + (1 if cmax == quantiles and cmid <= i else 0)
-                print(f"{i=} {p=} {cmax=}")
                 qcolor = self.plot_color(p, cmax, center=True)
                 color = color + (qcolor,) * len(groups[i])
         else:
