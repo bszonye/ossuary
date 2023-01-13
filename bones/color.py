@@ -34,39 +34,39 @@ def invert(c: ColorTriplet, /) -> ColorTriplet:
 def adjust_lightness(ratio: float, c: ColorTriplet, /) -> ColorTriplet:
     """Increase or decrease L* lightness by a ratio."""
     if ratio != 1.0:
-        L0 = lightness(c)
-        L1 = ratio * L0
-        c = darken(L1, c) if ratio < 1.0 else lighten(L1, c)
+        lstar0 = lightness(c)
+        lstar = ratio * lstar0
+        c = darken(lstar, c) if ratio < 1.0 else lighten(lstar, c)
     return c
 
 
-def set_lightness(L1: float, c: ColorTriplet, /) -> ColorTriplet:
+def set_lightness(lstar: float, c: ColorTriplet, /) -> ColorTriplet:
     """Set L* lightness to a given value."""
-    L0 = lightness(c)
-    if L0 != L1:
-        c = darken(L1, c) if L1 < L0 else lighten(L1, c)
+    lstar0 = lightness(c)
+    if lstar0 != lstar:
+        c = darken(lstar, c) if lstar < lstar0 else lighten(lstar, c)
     return c
 
 
-def darken(L1: float, c: ColorTriplet, /) -> ColorTriplet:
+def darken(lstar: float, c: ColorTriplet, /) -> ColorTriplet:
     """Darken a color from one L* value to another."""
-    L1 = max(0, L1)
-    L0 = lightness(c)
-    if L1 < L0:
-        ratio = L1 / L0
+    lstar = max(0, lstar)
+    lstar0 = lightness(c)
+    if lstar < lstar0:
+        ratio = lstar / lstar0
         r, g, b = c
         c = ratio * r, ratio * g, ratio * b
     return c
 
 
-def lighten(L1: float, c: ColorTriplet, /) -> ColorTriplet:
+def lighten(lstar: float, c: ColorTriplet, /) -> ColorTriplet:
     """Darken a color from one L* value to another."""
-    L1 = min(L1, 1.0)
-    L0 = lightness(c)
-    if L0 == 0.0:  # black into gray
-        return L1, L1, L1
-    if L0 < L1:
-        ratio = L1 / L0
+    lstar = min(lstar, 1.0)
+    lstar0 = lightness(c)
+    if lstar0 == 0.0:  # black into gray
+        return lstar, lstar, lstar
+    if lstar0 < lstar:
+        ratio = lstar / lstar0
         r, g, b = c
         # Lighten as much as possible without desaturating.
         headroom = 1.0 / max(r, g, b)
@@ -74,9 +74,9 @@ def lighten(L1: float, c: ColorTriplet, /) -> ColorTriplet:
             return ratio * r, ratio * g, ratio * b
         if 1.0 < headroom:
             c = headroom * r, headroom * g, headroom * b
-            L0 = lightness(c)
+            lstar0 = lightness(c)
         # Desaturate to finish lightening.
-        ratio = (1 - L1) / (1 - L0)
+        ratio = (1 - lstar) / (1 - lstar0)
         r, g, b = invert(c)
         c = invert((ratio * r, ratio * g, ratio * b))
     return c
