@@ -30,10 +30,11 @@ from collections.abc import (
     Sequence,
 )
 from fractions import Fraction
+from gettext import gettext as _t
 from types import MappingProxyType
-from typing import Any, cast, Self, TypeAlias, TypeVar
+from typing import Any, cast, Self, Sized, SupportsInt, TypeAlias, TypeVar
 
-from .color import ColorTriplet, plot_color
+from .color import ColorTriplet, interpolate_color
 
 # Type variables.
 ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
@@ -248,22 +249,22 @@ class PMF(Collection[ET_co]):
         an exact median and an even number of groups, this method places
         the median into the upper group.
         """
-        events = len(self)
+        size = len(self)
         n = (
             n
             if isinstance(n, int)
-            else events or 1
-            if events < 6
+            else 1
+            if size < 4
             else 4
-            if events in (6, 8)
+            if size in (4, 6, 8, 12, 16)
             else 5
-            if events < 18
+            if size < 18
             else 10
         )
 
-        if n < 1:
-            raise ValueError("size must be strictly positive")
-        if n == 1:  # all in one group
+        if n < 0:
+            raise ValueError("size must be non-negative")
+        if n < 2:  # all in one group
             return (self.domain,)
 
         groups: list[list[ET_co]] = [[] for _ in range(n)]
@@ -294,6 +295,28 @@ class PMF(Collection[ET_co]):
         assert acc == total
 
         return tuple(tuple(group) for group in groups)
+
+    @staticmethod
+    @functools.cache
+    def quantile_name(quantile: int | Sized, /, *, plural: bool = True) -> str:
+        """Return the name for a quantile of given size."""
+        names = {
+            3: (_t("tertile"), _t("tertiles")),
+            4: (_t("quartile"), _t("quartiles")),
+            5: (_t("quintile"), _t("quintiles")),
+            6: (_t("sextile"), _t("sextiles")),
+            7: (_t("septile"), _t("septiles")),
+            8: (_t("octile"), _t("octiles")),
+            10: (_t("decile"), _t("deciles")),
+            16: (_t("hexadecile"), _t("hexadeciles")),
+            20: (_t("ventile"), _t("ventiles")),
+            100: (_t("centile"), _t("centiles")),
+        }
+        default = (_t("{}-quantile"), _t("{}-quantiles"))
+
+        size = int(quantile) if isinstance(quantile, SupportsInt) else len(quantile)
+        name = names.get(size, default)[int(plural)].format(size)
+        return name
 
     def plot_colors(
         self,
@@ -332,27 +355,29 @@ class PMF(Collection[ET_co]):
         plabels = tuple(f"{100*p:.{precision}f}" for p in image)
         legend: list[str] = []
 
+        # Group events into quantiles.
+        quantiles = self.quantiles(q or 0)
+        nq = len(quantiles)
         color: tuple[ColorTriplet, ...]
-        if q:  # Set up quantile colors.
-            groups = self.quantiles(q)
-            quantiles = len(groups)
+        if 2 <= nq:  # Set up quantile colors.
             color = tuple()
-            for i in range(quantiles):
+            for i in range(nq):
                 # Color quantiles from blue to red to green.
-                qmax = quantiles - 1  # quantiles % 2
+                qmax = nq - 1
                 hues = min(max(180, 30 * qmax), 285)
-                cmin = (0 - hues / 2) / 360
-                cmax = (0 + hues / 2) / 360
-                qcolor = plot_color(
-                    i, pmax=qmax, cmin=cmin, cmax=cmax, outliers=(10 <= quantiles)
+                hmin = (0 - hues / 2) / 360
+                hmax = (0 + hues / 2) / 360
+                highlight = 1.0 if nq < 10 else 2 / 3
+                qcolor = interpolate_color(
+                    i, tmax=qmax, hmin=hmin, hmax=hmax, highlight=highlight
                 )
-                color = color + (qcolor,) * len(groups[i])
-                pgroup = float(sum(self.probability(ev) for ev in groups[i]))
-                legend.append(Patch(color=qcolor, label=f"{100*pgroup:.2f}"))
+                color = color + (qcolor,) * len(quantiles[i])
+                pgroup = float(sum(self.probability(ev) for ev in quantiles[i]))
+                legend.append(Patch(color=qcolor, label=f"{100*pgroup:\u2007>6.2f}"))
         else:
             # Color probabilities from violet to red.
             color = tuple(
-                plot_color(i, pmin=min(image), pmax=max(image)) for i in image
+                interpolate_color(i, tmin=min(image), tmax=max(image)) for i in image
             )
         edge = tuple((0.65 * r, 0.65 * g, 0.65 * b) for r, g, b in color)
 
@@ -367,17 +392,12 @@ class PMF(Collection[ET_co]):
         ax.set_ylabel("Probability")
         ax.bar_label(chart, labels=plabels, padding=1, fontsize="x-small")
         if legend:
-            axl = ax.legend(
-                title="Quantiles",
+            ax.legend(
+                title=self.quantile_name(len(quantiles)),
                 title_fontsize="small",
                 handles=legend,
                 fontsize="x-small",
             )
-            lwidth = max(t.get_window_extent().width for t in axl.get_texts())
-            for t in axl.get_texts():
-                t.set_ha("right")  # ha = horizontal alignment
-                lshift = lwidth - t.get_window_extent().width
-                t.set_position((lshift, 0))
 
         plt.show()
 
