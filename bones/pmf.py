@@ -11,12 +11,12 @@ __all__ = [
     "multiset_perm",
 ]
 
-import colorsys
 import functools
 import itertools
 import math
 import numbers
 import operator
+import types
 import typing
 from collections import Counter
 from collections.abc import (
@@ -33,10 +33,13 @@ from fractions import Fraction
 from types import MappingProxyType
 from typing import Any, cast, Self, TypeAlias, TypeVar
 
+from .color import ColorTriplet, plot_color
+
 # Type variables.
 ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
 
 # Type aliases.
+Auto: TypeAlias = types.EllipsisType
 Operator: TypeAlias = Callable[..., Any]
 Probability: TypeAlias = Fraction
 Weight: TypeAlias = int
@@ -236,7 +239,7 @@ class PMF(Collection[ET_co]):
         )
         return self._from_pairs(pairs, normalize=normalize)
 
-    def quantiles(self, n: int, /) -> Sequence[Sequence[ET_co]]:
+    def quantiles(self, n: int | Auto = Ellipsis, /) -> Sequence[Sequence[ET_co]]:
         """Partition the domain into equally likely groups.
 
         Quantiles divide a probability distribution into continuous,
@@ -245,8 +248,21 @@ class PMF(Collection[ET_co]):
         an exact median and an even number of groups, this method places
         the median into the upper group.
         """
+        events = len(self)
+        n = (
+            n
+            if isinstance(n, int)
+            else events or 1
+            if events < 6
+            else 4
+            if events in (6, 8)
+            else 5
+            if events < 18
+            else 10
+        )
+
         if n < 1:
-            raise ValueError("quantiles must be strictly positive")
+            raise ValueError("size must be strictly positive")
         if n == 1:  # all in one group
             return (self.domain,)
 
@@ -262,15 +278,15 @@ class PMF(Collection[ET_co]):
         try:
             ev, wt = next(pairs)
             wt *= scale
-            for q in range(n):
-                limit = bucket * (q + 1)
+            for i in range(n):
+                limit = bucket * (i + 1)
                 while (midpoint := acc + wt // 2) <= limit:
                     # If a quantile falls exactly in the middle of an
                     # event, round toward the center for symmetry.
                     if midpoint == limit and 2 * limit <= total:
                         break
                     acc += wt
-                    groups[q].append(ev)
+                    groups[i].append(ev)
                     ev, wt = next(pairs)
                     wt *= scale
         except StopIteration:
@@ -279,59 +295,18 @@ class PMF(Collection[ET_co]):
 
         return tuple(tuple(group) for group in groups)
 
-    @staticmethod
-    def plot_color(
-        p: float,
-        /,
+    def plot_colors(
+        self,
         *,
-        pmax: float = 1.0,
-        pmin: float = 0.0,
-        cmin: float = 0.75,
-        cmax: float = 0.0,
-        outliers: bool = False,
-    ) -> tuple[float, float, float]:
-        """Convert a probability into an RGB color."""
-
-        def lightness(r: float, g: float, b: float) -> float:
-            return 87098 / 409605 * r + 175762 / 245763 * g + 12673 / 175545 * b
-
-        def invert(c: Sequence[float]) -> Sequence[float]:
-            return tuple(1.0 - x for x in c)
-
-        def lighten(L0: float, L1: float, c: Sequence[float]) -> Sequence[float]:
-            if L0 < L1:
-                c = invert(tuple(x * (1 - L1) / (1 - L0) for x in invert(c)))
-            return c
-
-        def darken(L0: float, L1: float, c: Sequence[float]) -> Sequence[float]:
-            if L1 < L0:
-                c = tuple(x * L1 / L0 for x in c)
-            return c
-
-        t = float((p - pmin) / (pmax - pmin)) if pmax != pmin else 0.5
-        hue = (cmax - cmin) * t + cmin
-        # Widen CMY and narrow RGB to smooth color transitions.
-        # hue += math.sin(6.0 * math.pi * hue) / 36.0
-        hue %= 1.0
-        r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
-        Lstar = lightness(r, g, b)
-        if Lstar < 0.5:
-            # Lighten dark colors.
-            Lnew = Lstar + (0.5 - Lstar) * 0.4
-            r, g, b = lighten(Lstar, Lnew, (r, g, b))
-        elif 0.5 < Lstar:
-            # Dim bright colors, with a partial exception for yellows.
-            yellow = 1.0 - 6.0 * abs(min(hue, 1 / 3) - (1 / 6))
-            Lnew = 0.5 + 0.33 * yellow
-            r, g, b = darken(Lstar, Lnew, (r, g, b))
-        if outliers and p in (pmin, pmax):
-            r, g, b = darken(1.0, 0.65, (r, g, b))
-        return r, g, b
+        q: None | int | Auto = Ellipsis,
+    ) -> Iterable[ColorTriplet]:
+        """Determine plot colors for all event probabilities."""
+        return ()  # TODO
 
     def plot(
         self,
         *,
-        q: int | None = -1,
+        q: None | int | Auto = Ellipsis,
         vformat: str = "",
         precision: int = 2,
         window_title: str = "bones",
@@ -339,6 +314,7 @@ class PMF(Collection[ET_co]):
         """Display the PMF with matplotlib."""
         try:
             from matplotlib import pyplot as plt
+            from matplotlib.patches import Patch
         except ImportError:  # pragma: no cover
             return
 
@@ -354,20 +330,12 @@ class PMF(Collection[ET_co]):
         precision = max(0, precision)
         vlabels = tuple(format(v, vformat) for v in domain)
         plabels = tuple(f"{100*p:.{precision}f}" for p in image)
+        legend: list[str] = []
 
-        color: tuple[tuple[float, float, float], ...]
-        quantiles = q or 0
-        if quantiles and quantiles < 0:
-            if n < 6:
-                quantiles = n or 1
-            elif 18 <= n:
-                quantiles = 10
-            elif n in (6, 8):
-                quantiles = 4
-            else:
-                quantiles = 5
-        if quantiles:
-            groups = self.quantiles(quantiles)
+        color: tuple[ColorTriplet, ...]
+        if q:  # Set up quantile colors.
+            groups = self.quantiles(q)
+            quantiles = len(groups)
             color = tuple()
             for i in range(quantiles):
                 # Color quantiles from blue to red to green.
@@ -375,14 +343,16 @@ class PMF(Collection[ET_co]):
                 hues = min(max(180, 30 * qmax), 285)
                 cmin = (0 - hues / 2) / 360
                 cmax = (0 + hues / 2) / 360
-                qcolor = self.plot_color(
+                qcolor = plot_color(
                     i, pmax=qmax, cmin=cmin, cmax=cmax, outliers=(10 <= quantiles)
                 )
                 color = color + (qcolor,) * len(groups[i])
+                pgroup = float(sum(self.probability(ev) for ev in groups[i]))
+                legend.append(Patch(color=qcolor, label=f"{100*pgroup:.2f}"))
         else:
             # Color probabilities from violet to red.
             color = tuple(
-                self.plot_color(i, pmin=min(image), pmax=max(image)) for i in image
+                plot_color(i, pmin=min(image), pmax=max(image)) for i in image
             )
         edge = tuple((0.65 * r, 0.65 * g, 0.65 * b) for r, g, b in color)
 
@@ -393,9 +363,21 @@ class PMF(Collection[ET_co]):
             color=color,
             edgecolor=edge,
         )
-        ax.set_xlabel("Events")
+        ax.set_xlabel("Events")  # TODO: customizable title
         ax.set_ylabel("Probability")
         ax.bar_label(chart, labels=plabels, padding=1, fontsize="x-small")
+        if legend:
+            axl = ax.legend(
+                title="Quantiles",
+                title_fontsize="small",
+                handles=legend,
+                fontsize="x-small",
+            )
+            lwidth = max(t.get_window_extent().width for t in axl.get_texts())
+            for t in axl.get_texts():
+                t.set_ha("right")  # ha = horizontal alignment
+                lshift = lwidth - t.get_window_extent().width
+                t.set_position((lshift, 0))
 
         plt.show()
 
