@@ -11,12 +11,16 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 __all__ = ["main"]
 
 import sys
+from collections.abc import Iterable, Sequence
 from importlib import import_module
+from types import EllipsisType
 
 from .pmf import PMF
 
 
-def eval_demo(*expressions: str) -> None:
+def eval_demo(
+    expressions: Iterable[str], *, interactive: bool | EllipsisType = Ellipsis
+) -> None:
     """Evaluate expressions from the command line."""
     from . import __all__ as exports, __name__ as package_name
 
@@ -27,10 +31,13 @@ def eval_demo(*expressions: str) -> None:
     g |= {name: import_module(f".{name}", package_name) for name in module_names}
     g |= {name: getattr(package, name) for name in exports}
 
+    if interactive is Ellipsis:  # autodetect based on isatty
+        interactive = sys.__stdout__.isatty()
+
     for expression in expressions:
         v = eval(expression, g)
         if isinstance(v, PMF):
-            if sys.__stdout__.isatty():  # pragma: no cover
+            if interactive:  # pragma: no cover
                 v.plot()
             else:
                 print("\n".join(v.tabulate(":.2%")))
@@ -38,9 +45,11 @@ def eval_demo(*expressions: str) -> None:
             print(v)
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     """Script entry point. Command-line interface TBD."""
-    eval_demo(*sys.argv[1:])
+    if argv is None:  # pragma: no cover
+        argv = sys.argv
+    eval_demo(argv[1:])
 
 
 if __name__ == "__main__":
