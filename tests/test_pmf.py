@@ -388,7 +388,7 @@ class TestPMFConvert:
         assert pmf2.total == norm.total()
 
 
-class TestPMFProperties:
+class TestPMFAccessors:
     def test_empty(self) -> None:
         pmf = PMF[Any]()
 
@@ -427,8 +427,6 @@ class TestPMFProperties:
         assert pmf.image == image
         assert pmf.graph == graph
 
-
-class TestPMFCall:
     def test_calls(self) -> None:
         mapping = {1: 8, 2: 6, 3: 4, 4: 2, 5: 0}
 
@@ -613,6 +611,10 @@ class TestPMFCopy:
         assert len(sort) == len(norm)
         assert sort.mapping == dict(norm)
         assert sort.total == norm.total()
+
+    def test_short_sorts(self) -> None:
+        assert PMF().is_sorted()
+        assert PMF((1,)).is_sorted()
 
 
 class TestPMFUnaryOperator:

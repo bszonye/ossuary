@@ -81,6 +81,9 @@ class PMF(Collection[ET_co]):
     __total: Weight
     __gcd: Weight
 
+    # ==================================================================
+    # CONSTRUCTORS
+
     def __init__(
         self,
         events: Mapping[ET_co, Weight] | Iterable[ET_co] = (),
@@ -208,6 +211,9 @@ class PMF(Collection[ET_co]):
         pair: tuple[ET_co, Weight] = (other, 1)
         return cls.from_pairs((pair,))
 
+    # ==================================================================
+    # PROPERTIES AND ACCESSORS
+
     @property
     def mapping(self) -> Mapping[ET_co, Weight]:
         """Provide read-only access to the probability mapping."""
@@ -268,6 +274,9 @@ class PMF(Collection[ET_co]):
             weight = 0
         return weight
 
+    # ==================================================================
+    # COPYING AND NORMALIZATION
+
     def copy(self, normalize: bool = False) -> Self:
         """Create a shallow copy."""
         return self.from_self(self, normalize=normalize)
@@ -310,6 +319,11 @@ class PMF(Collection[ET_co]):
             (ev, self.weight(ev)) for ev in sorted(events, key=key, reverse=reverse)
         )
         return self.from_pairs(pairs, normalize=normalize)
+
+    # ==================================================================
+    # STATISTICS
+
+    # TODO: median, mean, variance, etc.
 
     def quantiles(self, n: int | Auto = Ellipsis, /) -> Sequence[Sequence[ET_co]]:
         """Partition the domain into equally likely groups.
@@ -388,6 +402,9 @@ class PMF(Collection[ET_co]):
         size = int(quantile) if isinstance(quantile, SupportsInt) else len(quantile)
         name = names.get(size, default)[int(plural)].format(size)
         return name
+
+    # ==================================================================
+    # TABULATON AND OUTPUT
 
     def plot_colors(
         self,
@@ -525,6 +542,29 @@ class PMF(Collection[ET_co]):
             for event in events
         )
 
+    def __format__(self, spec: str) -> str:
+        """Format the PMF according to the format spec."""
+        rows = self.tabulate(spec, align=False)
+        return "{" + ", ".join(rows) + "}"
+
+    def __repr__(self) -> str:
+        """Format the PMF for diagnostics."""
+        params = (
+            repr(dict(self.mapping))
+            if self.mapping
+            else f"normalize={self.__total!r}"
+            if self.__total != 1
+            else ""
+        )
+        return f"{type(self).__name__}({params})"
+
+    def __str__(self) -> str:
+        """Format the PMF for printing."""
+        return self.__format__("")
+
+    # ==================================================================
+    # COMBINATORICS
+
     @functools.lru_cache
     def combinations(self, n: int, /) -> Iterable[Sequence[ET_co]]:
         """Generate all distinct combinations of N outcomes."""
@@ -544,6 +584,9 @@ class PMF(Collection[ET_co]):
             cweight = math.prod(self.weight(v) for v in counter.elements())
             weights[combo] = cperms * cweight
         return MappingProxyType(weights)
+
+    # ==================================================================
+    # HIGHER-ORDER METHODS
 
     def map(self, f: Operator, /) -> Self:
         """Map events through a callable."""
@@ -594,6 +637,9 @@ class PMF(Collection[ET_co]):
             result = self.binary_operator(result, op)
         return result
 
+    # ==================================================================
+    # UNARY OPERATORS
+
     def unary_operator(self, op: Operator, /, *args: Any, **kwargs: Any) -> Self:
         """Compute a unary operator over a PMFs."""
         weights: dict[ET_co, Weight] = {}
@@ -633,6 +679,9 @@ class PMF(Collection[ET_co]):
     def __ceil__(self) -> Self:
         """Compute math.ceil(self)."""
         return self.unary_operator(math.ceil)
+
+    # ==================================================================
+    # BINARY OPERATORS
 
     def binary_operator(
         self, other: Self, op: Operator, /, *args: Any, **kwargs: Any
@@ -764,25 +813,8 @@ class PMF(Collection[ET_co]):
         """Compute other | self."""
         return self.convert(other).binary_operator(self, operator.or_)
 
-    def __format__(self, spec: str) -> str:
-        """Format the PMF according to the format spec."""
-        rows = self.tabulate(spec, align=False)
-        return "{" + ", ".join(rows) + "}"
-
-    def __repr__(self) -> str:
-        """Format the PMF for diagnostics."""
-        params = (
-            repr(dict(self.mapping))
-            if self.mapping
-            else f"normalize={self.__total!r}"
-            if self.__total != 1
-            else ""
-        )
-        return f"{type(self).__name__}({params})"
-
-    def __str__(self) -> str:
-        """Format the PMF for printing."""
-        return self.__format__("")
+    # ==================================================================
+    # COLLECTION METHODS
 
     def __contains__(self, event: Any) -> bool:
         """Test object for membership in the event domain."""
