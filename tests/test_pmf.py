@@ -53,6 +53,8 @@ class TestPMFInit:
         pmf1 = PMF(counter, normalize=False)
         pmf2 = PMF(pmf1)
 
+        assert pmf1.mapping is not pmf2.mapping  # copy should NOT share data
+
         assert len(pmf1) == len(counter)
         assert pmf1.mapping == dict(counter)
         assert pmf1.total == counter.total()
@@ -60,8 +62,6 @@ class TestPMFInit:
         assert len(pmf2) == len(norm)
         assert pmf2.mapping == dict(norm)
         assert pmf2.total == norm.total()
-
-        assert pmf1.mapping is not pmf2.mapping
 
     def test_copy_normalized(self) -> None:
         # Copy another PMF (with normalization).
@@ -72,6 +72,8 @@ class TestPMFInit:
         pmf1 = PMF(counter, normalize=False)
         pmf2 = PMF(pmf1, normalize=True)
 
+        assert pmf1.mapping is not pmf2.mapping  # copy should NOT share data
+
         assert len(pmf1) == len(counter)
         assert pmf1.mapping == dict(counter)
         assert pmf1.total == counter.total()
@@ -79,8 +81,6 @@ class TestPMFInit:
         assert len(pmf2) == len(norm)
         assert pmf2.mapping == dict(norm)
         assert pmf2.total == norm.total()
-
-        assert pmf1.mapping is not pmf2.mapping
 
     def test_copy_exact(self) -> None:
         # Copy another PMF (without normalization).
@@ -91,6 +91,8 @@ class TestPMFInit:
         pmf1 = PMF(counter, normalize=False)
         pmf2 = PMF(pmf1, normalize=False)
 
+        assert pmf1.mapping is pmf2.mapping  # copy should share data
+
         assert len(pmf1) == len(counter)
         assert pmf1.mapping == dict(counter)
         assert pmf1.total == counter.total()
@@ -98,8 +100,6 @@ class TestPMFInit:
         assert len(pmf2) == len(counter)
         assert pmf2.mapping == dict(counter)
         assert pmf2.total == counter.total()
-
-        assert pmf1.mapping is pmf2.mapping
 
     def test_normalize_default(self) -> None:
         pairs = [(0, 2), (3, 4), (7, 2)]
@@ -234,11 +234,56 @@ class TestPMFFromIterable:
 
 class TestPMFConvert:
     def test_same(self) -> None:
-        items = {0: 3}
-        pmf1 = PMF(items, normalize=False)
+        pairs = [(1, 3), (2, 6)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        pmf1 = PMF(counter, normalize=False)
         pmf2 = PMF[int].convert(pmf1)
-        assert pmf1.mapping is pmf2.mapping
-        assert pmf1.total is pmf2.total
+
+        assert pmf1 is pmf2  # convert should be a no-op
+
+        assert len(pmf1) == len(counter) == len(pmf2)
+        assert pmf1.mapping == dict(counter) == pmf2.mapping
+        assert pmf1.total == counter.total() == pmf2.total
+
+    def test_subtype(self) -> None:
+        pairs = [(1, 3), (2, 6)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        pmf1 = PMF(counter, normalize=False)
+        pmf2 = SubPMF[int].convert(pmf1)
+
+        assert type(pmf2) is SubPMF
+        assert pmf1.mapping is not pmf2.mapping  # copy should NOT share data
+
+        assert len(pmf1) == len(counter)
+        assert pmf1.mapping == dict(counter)
+        assert pmf1.total == counter.total()
+
+        assert len(pmf2) == len(norm)
+        assert pmf2.mapping == dict(norm)
+        assert pmf2.total == norm.total()
+
+    def test_supertype(self) -> None:
+        pairs = [(1, 3), (2, 6)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        pmf1 = SubPMF(counter, normalize=False)
+        pmf2 = PMF[int].convert(pmf1)
+
+        assert type(pmf2) is PMF
+        assert pmf1.mapping is not pmf2.mapping  # copy should NOT share data
+
+        assert len(pmf1) == len(counter)
+        assert pmf1.mapping == dict(counter)
+        assert pmf1.total == counter.total()
+
+        assert len(pmf2) == len(norm)
+        assert pmf2.mapping == dict(norm)
+        assert pmf2.total == norm.total()
 
 
 class TestPMFNormalized:

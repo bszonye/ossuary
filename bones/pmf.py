@@ -91,12 +91,12 @@ class PMF(Collection[ET_co]):
         # Convert input to iterable (event, weight) pairs.
         pairs: Iterable[tuple[ET_co, Weight]]
         match events:
-            case PMF() if type(events) is type(self):
-                # Copy another PMF of the same type.
-                if not normalize:
-                    self.__weights = events.__weights
-                    self.__total = events.__total
-                    return
+            case PMF() if type(events) is type(self) and not normalize:
+                # Make an exact copy of the same type.
+                self.__weights = events.__weights
+                self.__total = events.__total
+                return
+            case PMF():
                 pairs = events.pairs
             case Mapping():
                 pairs = cast(ItemsView[ET_co, Weight], events.items())
