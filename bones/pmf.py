@@ -45,6 +45,12 @@ Operator: TypeAlias = Callable[..., Any]
 Probability: TypeAlias = Fraction
 Weight: TypeAlias = int
 
+# Need explicit unions with the builtin types because mypy does not
+# recognize the numeric tower extension mechanism.  The Fraction class
+# works fine because subclasses Rational directly.
+_Rational: TypeAlias = numbers.Rational | int
+_Real: TypeAlias = numbers.Real | float | int
+
 
 class PMF(Collection[ET_co]):
     """Generic base class for probability mass functions.
@@ -314,16 +320,58 @@ class PMF(Collection[ET_co]):
         normalize: bool = False,
     ) -> Self:
         """Create a sorted copy."""
-        events: Sequence[Any] = self.domain  # assume event or key type is sortable
-        pairs = (
-            (ev, self.weight(ev)) for ev in sorted(events, key=key, reverse=reverse)
-        )
+        key_or_identity = key or (lambda x: x)
+
+        def pairkey(pair: tuple[ET_co, Weight]) -> Any:
+            return key_or_identity(pair[0])
+
+        pairs = sorted(self.pairs, key=pairkey, reverse=reverse)
         return self.from_pairs(pairs, normalize=normalize)
 
     # ==================================================================
     # STATISTICS
 
-    # TODO: median, mean, variance, etc.
+    # TODO: median, variance, stdev, etc.
+
+    @functools.cached_property
+    def _mean_numerator(self: "PMF[_Real]") -> ET_co:
+        """Calculate the exact numerator of the mean."""
+        return cast(ET_co, sum(map(operator.mul, self.domain, self.weights)))
+
+    @functools.cached_property
+    def exact_mean(self: "PMF[_Rational]") -> Fraction:
+        """Calculate the PMF mean as a fraction."""
+        return Fraction(self._mean_numerator, self.total)
+
+    @functools.cached_property
+    def mean(self: "PMF[_Real]") -> float:
+        """Calculate the PMF mean as a float."""
+        return float(self._mean_numerator / self.total)
+
+    @functools.cached_property
+    def _variance_squares(self: "PMF[_Real]") -> ET_co:
+        """Calculate the sum of squares used in calculating variance."""
+        sum_of_squares = sum(map(lambda v, w: v * v * w, self.domain, self.weights))
+        return cast(ET_co, sum_of_squares)
+
+    @functools.cached_property
+    def exact_variance(self: "PMF[_Rational]") -> Fraction:
+        """Calculate the PMF variance as a fraction."""
+        mean_of_squares = Fraction(self._variance_squares, self.total)
+        square_of_mean = self.exact_mean * self.exact_mean
+        return mean_of_squares - square_of_mean
+
+    @functools.cached_property
+    def variance(self: "PMF[_Real]") -> float:
+        """Calculate the PMF variance as a float."""
+        mean_of_squares = float(self._variance_squares / self.total)
+        square_of_mean = self.mean * self.mean
+        return mean_of_squares - square_of_mean
+
+    @functools.cached_property
+    def standard_deviation(self: "PMF[_Real]") -> float:
+        """Calculate the PMF standard distribtion as a float."""
+        return math.sqrt(self.variance)
 
     def quantiles(self, n: int | Auto = Ellipsis, /) -> Sequence[Sequence[ET_co]]:
         """Partition the domain into equally likely groups.
