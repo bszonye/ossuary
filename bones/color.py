@@ -3,8 +3,9 @@
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 __all__ = [
-    "ColorTriplet",
     "adjust_lightness",
+    "clip",
+    "ColorTriplet",
     "darken",
     "interpolate_color",
     "invert",
@@ -22,7 +23,17 @@ ColorTriplet: TypeAlias = tuple[float, float, float]
 def lightness(c: ColorTriplet, /) -> float:
     """Convert an sRGB triplet to L*a*b* lightness."""
     r, g, b = c
-    return 87098 / 409605 * r + 175762 / 245763 * g + 12673 / 175545 * b
+    lstar = 87098 / 409605 * r + 175762 / 245763 * g + 12673 / 175545 * b
+    return min(lstar, 1.0)  # color channels need to stay in the [0, 1] interval
+
+
+def clip(c: ColorTriplet, /) -> ColorTriplet:
+    """Clip color channels to the [0, 1] interval."""
+    r, g, b = c
+    r = max(0.0, min(r, 1.0))
+    g = max(0.0, min(r, 1.0))
+    b = max(0.0, min(r, 1.0))
+    return r, g, b
 
 
 def invert(c: ColorTriplet, /) -> ColorTriplet:
@@ -41,7 +52,7 @@ def adjust_lightness(ratio: float, c: ColorTriplet, /) -> ColorTriplet:
 
 
 def set_lightness(lstar: float, c: ColorTriplet, /) -> ColorTriplet:
-    """Set L* lightness to a given value."""
+    """Change color to match a given L* lightness."""
     lstar0 = lightness(c)
     if lstar0 != lstar:
         c = darken(lstar, c) if lstar < lstar0 else lighten(lstar, c)
@@ -60,7 +71,7 @@ def darken(lstar: float, c: ColorTriplet, /) -> ColorTriplet:
 
 
 def lighten(lstar: float, c: ColorTriplet, /) -> ColorTriplet:
-    """Darken a color from one L* value to another."""
+    """Lighten a color from one L* value to another."""
     lstar = min(lstar, 1.0)
     lstar0 = lightness(c)
     if lstar0 == 0.0:  # black into gray
@@ -104,7 +115,7 @@ def interpolate_color(
         # Lighten dark colors.
         Lnew = Lstar + (0.5 - Lstar) * 0.4
         r, g, b = lighten(Lnew, (r, g, b))
-    elif 0.5 < Lstar:
+    else:
         # Dim bright colors, with a partial exception for yellows.
         yellow = 1.0 - 6.0 * abs(min(hue, 1 / 3) - (1 / 6))
         Lnew = 0.5 + 0.33 * yellow
