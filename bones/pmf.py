@@ -179,7 +179,7 @@ class PMF(Collection[ET_co]):
         return tuple(self.mapping.values())
 
     @functools.cached_property
-    def pairs(self) -> Sequence[tuple[ET_co, Weight]]:  # TODO: rename?
+    def pairs(self) -> Sequence[tuple[ET_co, Weight]]:
         """Return all of the (event, weight) pairs."""
         return tuple(self.mapping.items())
 

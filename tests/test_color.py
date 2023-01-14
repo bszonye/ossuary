@@ -4,7 +4,7 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 import colorsys
 
-from pytest import approx
+from pytest import approx  # pyright: ignore[reportUnknownVariableType]
 
 from bones.color import (
     adjust_lightness,
