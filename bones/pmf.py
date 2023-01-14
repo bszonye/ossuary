@@ -268,17 +268,34 @@ class PMF(Collection[ET_co]):
             weight = 0
         return weight
 
+    def copy(self, normalize: bool = False) -> Self:
+        """Create a shallow copy."""
+        return self.from_self(self, normalize=normalize)
+
     def is_normal(self) -> bool:
         """Return true if the PMF weights are irreducible."""
         return self.__gcd <= 1
 
     def normalized(self) -> Self:
-        """Return an equivalent object with weights in lowest terms."""
+        """Create a copy with all weights reduced to lowest terms."""
         return self if self.is_normal() else self.copy(normalize=True)
 
-    def copy(self, normalize: bool = False) -> Self:
-        """Create a shallow copy."""
-        return self.from_self(self, normalize=normalize)
+    def is_sorted(
+        self,
+        *,
+        key: Operator | None = None,
+        reverse: bool = False,
+    ) -> bool:
+        """Return true if the PMF domain is in sorted order."""
+        if len(self) < 2:
+            return True
+
+        # Build a sequence in the right direction with key applied.
+        items: Iterable[Any]  # assume event or key type is sortable
+        items = reversed(self.domain) if reverse else self.domain
+        if key is not None:
+            items = map(key, items)
+        return all(a <= b for a, b in itertools.pairwise(items))
 
     def sorted(
         self,
@@ -288,7 +305,7 @@ class PMF(Collection[ET_co]):
         normalize: bool = False,
     ) -> Self:
         """Create a sorted copy."""
-        events: Sequence[Any] = self.domain  # assume event type is sortable
+        events: Sequence[Any] = self.domain  # assume event or key type is sortable
         pairs = (
             (ev, self.weight(ev)) for ev in sorted(events, key=key, reverse=reverse)
         )

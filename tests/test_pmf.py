@@ -458,7 +458,41 @@ class TestPMFCall:
             assert pmf(ev) == 0
 
 
-class TestPMFNormalized:
+class TestPMFCopy:
+    # Test the copying methods: copy, normalized, sorted.
+
+    def test_copy_normalize_false(self) -> None:
+        pairs = [(0, 2), (3, 4), (7, 2)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        pmf = PMF(dict(counter), normalize=False)
+        copy = pmf.copy(normalize=False)  # exact
+
+        # copy-specific checks
+        assert not copy.is_normal()
+        assert copy.mapping is pmf.mapping
+        # general checks
+        assert len(copy) == len(counter)
+        assert copy.mapping == dict(counter)
+        assert copy.total == counter.total()
+
+    def test_copy_normalize_true(self) -> None:
+        pairs = [(0, 2), (3, 4), (7, 2)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        pmf = PMF(dict(counter), normalize=False)
+        copy = pmf.copy(normalize=True)  # normalized
+
+        # copy-specific checks
+        assert copy.is_normal()
+        assert copy.mapping is not pmf.mapping
+        # general checks
+        assert len(copy) == len(norm)
+        assert copy.mapping == dict(norm)
+        assert copy.total == norm.total()
+
     weights = {
         # Zero weights.
         (): 0,  # No weights.
@@ -475,27 +509,110 @@ class TestPMFNormalized:
     }
 
     @pytest.mark.parametrize("weights, int_weight", weights.items())
-    def test_normalized_default(
-        self, weights: Sequence[Weight], int_weight: int
-    ) -> None:
+    def test_normalized(self, weights: Sequence[Weight], int_weight: int) -> None:
         # Test the default parameters with various item weights.
         items = {i: weights[i] for i in range(len(weights))}
-        pmf = PMF(items)
-        npmf = pmf.normalized()
-        assert len(npmf) == len(pmf)
-        assert npmf.total == int_weight
+
+        pmf = PMF(items, normalize=False)
+        normalized = pmf.normalized()
+
+        assert normalized.is_normal()
+        assert len(normalized) == len(pmf)
+        assert normalized.total == int_weight
 
         # All weights should be integers after default normalization.
-        weights = tuple(npmf.weights)
+        weights = tuple(normalized.weights)
         for w in weights:
             assert isinstance(w, int)
 
         total = sum(weights)
         if total:
-            assert npmf.total == total
+            assert normalized.total == total
             assert math.gcd(*weights) == 1
         else:
-            assert len(npmf.support) == 0
+            assert len(normalized.support) == 0
+
+    def test_sorted_normalize_false(self) -> None:
+        pairs = [("a", 2), ("lazy", 4), ("black", 6), ("cat", 8)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        pmf = PMF(dict(counter), normalize=False)
+        assert not pmf.is_sorted()
+
+        sort = pmf.sorted(normalize=False)  # exact
+        assert sort.domain == ("a", "black", "cat", "lazy")
+        assert sort.is_sorted()
+        assert not sort.is_normal()
+        # general checks
+        assert len(sort) == len(counter)
+        assert sort.mapping == dict(counter)
+        assert sort.total == counter.total()
+
+    def test_sorted_normalize_true(self) -> None:
+        pairs = [("a", 2), ("lazy", 4), ("black", 6), ("cat", 8)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        pmf = PMF(dict(counter), normalize=False)
+        assert not pmf.is_sorted()
+
+        sort = pmf.sorted(normalize=True)  # normalized
+        assert sort.domain == ("a", "black", "cat", "lazy")
+        assert sort.is_sorted()
+        assert sort.is_normal()
+        # general checks
+        assert len(sort) == len(norm)
+        assert sort.mapping == dict(norm)
+        assert sort.total == norm.total()
+
+    def test_sorted_key(self) -> None:
+        pairs = [("a", 1), ("lazy", 2), ("black", 3), ("cat", 4)]
+        counter, norm = expected(pairs)
+        assert counter == norm
+
+        pmf = PMF(dict(counter))
+        assert not pmf.is_sorted(key=len)
+
+        sort = pmf.sorted(key=len)
+        assert sort.domain == ("a", "cat", "lazy", "black")
+        assert sort.is_sorted(key=len)
+        # general checks
+        assert len(sort) == len(norm)
+        assert sort.mapping == dict(norm)
+        assert sort.total == norm.total()
+
+    def test_sorted_reverse(self) -> None:
+        pairs = [("a", 1), ("lazy", 2), ("black", 3), ("cat", 4)]
+        counter, norm = expected(pairs)
+        assert counter == norm
+
+        pmf = PMF(dict(counter))
+        assert not pmf.is_sorted(key=len)
+
+        sort = pmf.sorted(reverse=True)
+        assert sort.domain == ("lazy", "cat", "black", "a")
+        assert sort.is_sorted(reverse=True)
+        # general checks
+        assert len(sort) == len(norm)
+        assert sort.mapping == dict(norm)
+        assert sort.total == norm.total()
+
+    def test_sorted_key_reverse(self) -> None:
+        pairs = [("a", 1), ("lazy", 2), ("black", 3), ("cat", 4)]
+        counter, norm = expected(pairs)
+        assert counter == norm
+
+        pmf = PMF(dict(counter))
+        assert not pmf.is_sorted(key=len, reverse=True)
+
+        sort = pmf.sorted(key=len, reverse=True)
+        assert sort.domain == ("black", "lazy", "cat", "a")
+        assert sort.is_sorted(key=len, reverse=True)
+        # general checks
+        assert len(sort) == len(norm)
+        assert sort.mapping == dict(norm)
+        assert sort.total == norm.total()
 
 
 class TestPMFUnaryOperator:
