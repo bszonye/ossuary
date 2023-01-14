@@ -246,6 +246,60 @@ class TestPMFFromSelf:
             assert pmf.mapping == dict(norm)
             assert pmf.total == norm.total()
 
+    def test_normalize_false(self) -> None:
+        pairs = [(1, 3), (2, 6)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        # Chain constructors up & down subtypes.
+        pmf1 = SubPMF(counter, normalize=False)
+        pmf2 = SubPMF.from_self(pmf1, normalize=False)
+        pmf3 = PMF.from_self(pmf2, normalize=False)
+        pmf4 = PMF.from_self(pmf3, normalize=False)
+        pmf5 = SubPMF.from_self(pmf4, normalize=False)
+
+        # Only the same-type copies should share data.
+        assert pmf1.mapping is pmf2.mapping
+        assert pmf2.mapping is not pmf3.mapping
+        assert pmf3.mapping is pmf4.mapping
+        assert pmf4.mapping is not pmf5.mapping
+
+        # Check attributes.
+        for pmf in (pmf1, pmf2, pmf3, pmf4, pmf5):
+            assert len(pmf) == len(counter)
+            assert pmf.mapping == dict(counter)
+            assert pmf.total == counter.total()
+
+    def test_normalize_true(self) -> None:
+        pairs = [(1, 3), (2, 6)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        # Mix and match subtypes.
+        pmf1a = PMF(counter, normalize=False)
+        pmf2a = PMF.from_self(pmf1a, normalize=True)
+        pmf3a = SubPMF.from_self(pmf1a, normalize=True)
+        pmf1b = PMF(counter, normalize=False)
+        pmf2b = PMF.from_self(pmf1b, normalize=True)
+        pmf3b = SubPMF.from_self(pmf1b, normalize=True)
+
+        # None of the copies should share data.
+        assert pmf1a.mapping is not pmf2a.mapping
+        assert pmf1a.mapping is not pmf3a.mapping
+        assert pmf1b.mapping is not pmf2b.mapping
+        assert pmf1b.mapping is not pmf3b.mapping
+
+        # Originals should have the original data.
+        for pmf in (pmf1a, pmf1b):
+            assert len(pmf) == len(counter)
+            assert pmf.mapping == dict(counter)
+            assert pmf.total == counter.total()
+        # Copies should have the normalized data.
+        for pmf in (pmf2a, pmf3a, pmf2b, pmf3b):
+            assert len(pmf) == len(norm)
+            assert pmf.mapping == dict(norm)
+            assert pmf.total == norm.total()
+
 
 class TestPMFFromPairs:
     def test_empty(self) -> None:
@@ -332,6 +386,76 @@ class TestPMFConvert:
         assert len(pmf2) == len(norm)
         assert pmf2.mapping == dict(norm)
         assert pmf2.total == norm.total()
+
+
+class TestPMFProperties:
+    def test_empty(self) -> None:
+        pmf = PMF[Any]()
+
+        # Test all of the instance properties.
+        assert pmf.mapping == {}
+        assert pmf.total == 0
+        assert pmf.gcd == 0
+        assert pmf.domain == ()
+        assert pmf.support == ()
+        assert pmf.weights == ()
+        assert pmf.pairs == ()
+        assert pmf.image == ()
+        assert pmf.graph == ()
+
+    def test_properties(self) -> None:
+        mapping = {1: 8, 2: 6, 3: 4, 4: 2, 5: 0}
+        total = sum(mapping.values())
+        gcd = math.gcd(*mapping.values())
+        domain = tuple(mapping.keys())
+        support = tuple(ev for ev, wt in mapping.items() if wt)
+        weights = tuple(mapping.values())
+        pairs = tuple((ev, wt) for ev, wt in mapping.items())
+        image = tuple(Fraction(wt, total) for wt in mapping.values())
+        graph = tuple((ev, Fraction(wt, total)) for ev, wt in mapping.items())
+
+        pmf = PMF(mapping, normalize=False)
+
+        # Test all of the instance properties.
+        assert pmf.mapping == mapping
+        assert pmf.total == total
+        assert pmf.gcd == gcd
+        assert pmf.domain == domain
+        assert pmf.support == support
+        assert pmf.weights == weights
+        assert pmf.pairs == pairs
+        assert pmf.image == image
+        assert pmf.graph == graph
+
+
+class TestPMFCall:
+    def test_calls(self) -> None:
+        mapping = {1: 8, 2: 6, 3: 4, 4: 2, 5: 0}
+
+        pmf = PMF(mapping, normalize=False)
+
+        # Test the callable interface and its underlying methods.
+        for ev, wt in mapping.items():
+            assert pmf.weight(ev) == wt
+            assert pmf.probability(ev) == Fraction(wt, pmf.total)
+            assert pmf(ev) == Fraction(wt, pmf.total)
+
+    def test_zeroes(self) -> None:
+        mapping = {1: 8, 2: 6, 3: 4, 4: 2, 5: 0}
+
+        pmf = PMF(mapping, normalize=False)
+
+        # Test values that should have zero probability.
+        zeroes: Sequence[Any] = (
+            5,  # explicitly zero in the mapping
+            6,  # not in the mapping
+            "nope",  # not an integer
+            list(),  # not even hashable
+        )
+        for ev in zeroes:
+            assert pmf.weight(ev) == 0
+            assert pmf.probability(ev) == 0
+            assert pmf(ev) == 0
 
 
 class TestPMFNormalized:

@@ -208,6 +208,21 @@ class PMF(Collection[ET_co]):
         pair: tuple[ET_co, Weight] = (other, 1)
         return cls.from_pairs((pair,))
 
+    @property
+    def mapping(self) -> Mapping[ET_co, Weight]:
+        """Provide read-only access to the probability mapping."""
+        return self.__weights
+
+    @property
+    def total(self) -> Weight:
+        """Provide read-only access to the total probability."""
+        return self.__total
+
+    @property
+    def gcd(self) -> Weight:
+        """Provide read-only access to the GCD of all event weights."""
+        return self.__gcd
+
     @functools.cached_property
     def domain(self) -> Sequence[ET_co]:
         """Return all events defined for the PMF."""
@@ -227,21 +242,6 @@ class PMF(Collection[ET_co]):
     def pairs(self) -> Sequence[tuple[ET_co, Weight]]:
         """Return all of the (event, weight) pairs."""
         return tuple(self.mapping.items())
-
-    @property
-    def mapping(self) -> Mapping[ET_co, Weight]:
-        """Provide read-only access to the probability mapping."""
-        return self.__weights
-
-    @property
-    def total(self) -> Weight:
-        """Provide read-only access to the total probability."""
-        return self.__total
-
-    @property
-    def gcd(self) -> Weight:
-        """Provide read-only access to the GCD of all event weights."""
-        return self.__gcd
 
     @functools.cached_property
     def image(self) -> Sequence[Probability]:
