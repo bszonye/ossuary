@@ -97,9 +97,24 @@ class TestPMFInit:
         assert pmf1.mapping == dict(counter)
         assert pmf1.total == counter.total()
 
-        assert len(pmf2) == len(counter)
-        assert pmf2.mapping == dict(counter)
-        assert pmf2.total == counter.total()
+        assert len(pmf1) == len(counter) == len(pmf2)
+        assert pmf1.mapping == dict(counter) == pmf2.mapping
+        assert pmf1.total == counter.total() == pmf2.total
+
+    def test_copy_irreducible(self) -> None:
+        # Copy a PMF that's irreducible (already in normal form).
+        pairs = [(1, 1), (2, 2), (3, 3)]
+        counter, norm = expected(pairs)
+        assert counter == norm
+
+        pmf1 = PMF(counter, normalize=False)
+        pmf2 = PMF(pmf1, normalize=True)
+
+        assert pmf1.mapping is pmf2.mapping  # copy should share data
+
+        assert len(pmf1) == len(counter) == len(pmf2)
+        assert pmf1.mapping == dict(counter) == pmf2.mapping
+        assert pmf1.total == counter.total() == pmf2.total
 
     def test_normalize_default(self) -> None:
         pairs = [(0, 2), (3, 4), (7, 2)]
@@ -199,17 +214,50 @@ class TestPMFInit:
             PMF({0: -1})
 
 
+class TestPMFFromSelf:
+    def test_subtypes(self) -> None:
+        pairs = [(1, 3), (2, 6)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        # Chain constructors up & down subtypes.
+        pmf1 = SubPMF(norm)
+        pmf2 = SubPMF.from_self(pmf1)
+        pmf3 = PMF.from_self(pmf2)
+        pmf4 = PMF.from_self(pmf3)
+        pmf5 = SubPMF.from_self(pmf4)
+
+        # Check all of the types.
+        assert type(pmf1) is SubPMF
+        assert type(pmf2) is SubPMF
+        assert type(pmf3) is PMF
+        assert type(pmf4) is PMF
+        assert type(pmf5) is SubPMF
+
+        # Only the same-type copies should share data.
+        assert pmf1.mapping is pmf2.mapping
+        assert pmf2.mapping is not pmf3.mapping
+        assert pmf3.mapping is pmf4.mapping
+        assert pmf4.mapping is not pmf5.mapping
+
+        # Check attributes.
+        for pmf in (pmf1, pmf2, pmf3, pmf4, pmf5):
+            assert len(pmf) == len(norm)
+            assert pmf.mapping == dict(norm)
+            assert pmf.total == norm.total()
+
+
 class TestPMFFromPairs:
     def test_empty(self) -> None:
         items = ()
-        pmf = PMF[Any]._from_pairs(items)  # pyright: ignore[reportPrivateUsage]
+        pmf = PMF[Any].from_pairs(items)
         assert len(pmf) == 0
         assert pmf.mapping == {}
         assert pmf.total == 0
 
     def test_dict_items(self) -> None:
         items = {0: 1, 3: 2, 7: 1}
-        pmf = PMF._from_pairs(items.items())  # pyright: ignore[reportPrivateUsage]
+        pmf = PMF.from_pairs(items.items())
         assert len(pmf) == len(items)
         assert pmf.mapping == items
         assert pmf.total == sum(items.values())
@@ -218,14 +266,14 @@ class TestPMFFromPairs:
 class TestPMFFromIterable:
     def test_empty(self) -> None:
         items = ()
-        pmf = PMF[Any]._from_iterable(items)  # pyright: ignore[reportPrivateUsage]
+        pmf = PMF[Any].from_iterable(items)
         assert len(pmf) == 0
         assert pmf.mapping == {}
         assert pmf.total == 0
 
     def test_sequence(self) -> None:
         items = (1, 3, 1, 2, 1, 2)
-        pmf = PMF._from_iterable(items)  # pyright: ignore[reportPrivateUsage]
+        pmf = PMF.from_iterable(items)
         assert len(pmf) == 3
         assert pmf.mapping == {1: 3, 2: 2, 3: 1}
         assert pmf.total == len(items)

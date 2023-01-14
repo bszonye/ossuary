@@ -222,4 +222,4 @@ class DiceTuplePMF(PMF[DiceTuple]):
             total = sum(tuple(combo))
             weights.setdefault(total, 0)
             weights[total] += count
-        return Die._from_pairs(weights.items())
+        return Die.from_pairs(weights.items())

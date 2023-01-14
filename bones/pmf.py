@@ -79,6 +79,7 @@ class PMF(Collection[ET_co]):
     # TODO: event type check and conversion
     __weights: Mapping[ET_co, Weight]
     __total: Weight
+    __gcd: Weight
 
     def __init__(
         self,
@@ -88,30 +89,48 @@ class PMF(Collection[ET_co]):
         normalize: bool = True,
     ) -> None:
         """Initialize PMF object."""
-        # Convert input to iterable (event, weight) pairs.
-        pairs: Iterable[tuple[ET_co, Weight]]
-        match events:
-            case PMF() if type(events) is type(self) and not normalize:
-                # Make an exact copy of the same type.
-                self.__weights = events.__weights
-                self.__total = events.__total
-                return
-            case PMF():
-                pairs = events.pairs
-            case Mapping():
-                pairs = cast(ItemsView[ET_co, Weight], events.items())
-            case Iterable():
-                pairs = ((event, 1) for event in events)
-            case _:
-                raise TypeError(f"not iterable: {type(events).__name__!r}")
-        # Finish initializion from the (event, weight) pairs.
-        self._from_pairs(pairs, instance=self, normalize=normalize)
+        self.from_iterable(events, instance=self, normalize=normalize)
 
     @classmethod
-    def _from_pairs(
+    def from_self(
+        cls,
+        other: "PMF[ET_co]",
+        /,
+        *,
+        instance: Self | None = None,
+        normalize: bool = True,
+    ) -> Self:
+        """Construct a new PMF from an existing one."""
+        # Create the instance if it doesn't already exist.
+        if instance is None:
+            instance = cls.__new__(cls)
+
+        # Rebuild from (event, weight) pairs if the type doesn't match.
+        if type(other) is not cls:
+            pairs = other.pairs
+            return cls.from_pairs(pairs, instance=instance, normalize=normalize)
+
+        # Return an exact copy if possible.
+        if other.is_normal() or not normalize:
+            instance.__weights = other.__weights
+            instance.__total = other.__total
+            instance.__gcd = other.__gcd
+            return instance
+
+        # Make a normalized copy.
+        gcd = other.gcd
+        weights: dict[ET_co, Weight] = {ev: wt // gcd for ev, wt in other.pairs}
+        instance.__weights = MappingProxyType(weights)
+        instance.__total = other.total // gcd
+        instance.__gcd = 1
+        return instance
+
+    @classmethod
+    def from_pairs(
         cls,
         pairs: Iterable[tuple[ET_co, Weight]],
         /,
+        *,
         instance: Self | None = None,
         normalize: bool = True,
     ) -> Self:
@@ -134,34 +153,60 @@ class PMF(Collection[ET_co]):
             weights[ev] = weights.setdefault(ev, 0) + wt
             total += wt
         # Optionally, reduce weights by their greatest common divisor.
-        if normalize:
-            factor = math.gcd(*weights.values())
-            if 1 < factor:  # Don't divide by 0 or 1.
-                for event in weights.keys():
-                    weights[event] //= factor
-                total //= factor
+        gcd = math.gcd(*weights.values())
+        if normalize and 1 < gcd:
+            for event in weights.keys():
+                weights[event] //= gcd
+            total //= gcd
+            gcd = 1
         # Initialize attributes.
         instance.__weights = MappingProxyType(weights)
         instance.__total = total
+        instance.__gcd = gcd
         return instance
 
     @classmethod
-    def _from_iterable(cls, events: Iterable[ET_co], /) -> Self:
-        """Create a new PMF from an {event: weight} mapping."""
-        pairs = ((ev, 1) for ev in events)
-        return cls._from_pairs(pairs, normalize=False)
+    def from_iterable(
+        cls,
+        events: Iterable[ET_co],
+        /,
+        *,
+        instance: Self | None = None,
+        normalize: bool = True,
+    ) -> Self:
+        """Create a new PMF from an iterable."""
+        # Create the instance if it doesn't already exist.
+        if instance is None:
+            instance = cls.__new__(cls)
+        pairs: Iterable[tuple[ET_co, Weight]]
+        match events:
+            case PMF():
+                return instance.from_self(
+                    events, instance=instance, normalize=normalize
+                )
+            case Mapping():
+                # The from_pairs constructor will check Weight types.
+                pairs = cast(ItemsView[ET_co, Weight], events.items())
+            case Iterable():
+                pairs = ((event, 1) for event in events)
+            case _:
+                raise TypeError(f"not iterable: {type(events).__name__!r}")
+        # Finish initializion from the (event, weight) pairs.
+        return instance.from_pairs(pairs, instance=instance, normalize=normalize)
 
     @classmethod
-    def convert(cls, other: Any, /) -> Self:
+    def convert(cls, other: Any, /, normalize: bool = True) -> Self:
         """Convert an object to a PMF."""
+        # Return the other object directly if it's the same type of PMF.
+        # Use the from_self constructor for other subtypes.
         if isinstance(other, PMF):
-            # If the object is already a PMF, convert it to the same
-            # subtype (if necessary) and then return it.
             pmf: PMF[Any] = other
-            return pmf if type(pmf) is cls else cls(pmf)
+            return pmf if type(pmf) is cls else cls.from_self(pmf)
         # Otherwise, convert the object to a single-event PMF.
-        weights: dict[ET_co, Weight] = {other: 1}
-        return cls(weights)
+        # There's no implicit conversion of weight mappings or pairs!
+        # Use from_iterable or from_pairs for explicit conversion.
+        pair: tuple[ET_co, Weight] = (other, 1)
+        return cls.from_pairs((pair,))
 
     @functools.cached_property
     def domain(self) -> Sequence[ET_co]:
@@ -193,6 +238,11 @@ class PMF(Collection[ET_co]):
         """Provide read-only access to the total probability."""
         return self.__total
 
+    @property
+    def gcd(self) -> Weight:
+        """Provide read-only access to the GCD of all event weights."""
+        return self.__gcd
+
     @functools.cached_property
     def image(self) -> Sequence[Probability]:
         """Return all event probabilities."""
@@ -218,13 +268,17 @@ class PMF(Collection[ET_co]):
             weight = 0
         return weight
 
-    def normalized(self) -> Self:
-        """Return an equivalent object with minimum integer weights."""
-        return type(self)(self, normalize=True)
+    def is_normal(self) -> bool:
+        """Return true if the PMF weights are irreducible."""
+        return self.__gcd <= 1
 
-    def copy(self) -> Self:
+    def normalized(self) -> Self:
+        """Return an equivalent object with weights in lowest terms."""
+        return self if self.is_normal() else self.copy(normalize=True)
+
+    def copy(self, normalize: bool = False) -> Self:
         """Create a shallow copy."""
-        return type(self)(self, normalize=False)
+        return self.from_self(self, normalize=normalize)
 
     def sorted(
         self,
@@ -238,7 +292,7 @@ class PMF(Collection[ET_co]):
         pairs = (
             (ev, self.weight(ev)) for ev in sorted(events, key=key, reverse=reverse)
         )
-        return self._from_pairs(pairs, normalize=normalize)
+        return self.from_pairs(pairs, normalize=normalize)
 
     def quantiles(self, n: int | Auto = Ellipsis, /) -> Sequence[Sequence[ET_co]]:
         """Partition the domain into equally likely groups.
@@ -497,7 +551,7 @@ class PMF(Collection[ET_co]):
             pshare = share // mv.total
             for pv, pwt in mv.pairs:
                 weights[pv] = weights.setdefault(pv, 0) + wt * pwt * pshare
-        return self._from_pairs(weights.items())
+        return self.from_pairs(weights.items())
 
     @functools.lru_cache
     def times(self, n: int, op: Operator = operator.add, /) -> Self:
@@ -529,7 +583,7 @@ class PMF(Collection[ET_co]):
         for ev, wt in self.pairs:
             ev = op(ev, *args, **kwargs)
             weights[ev] = weights.setdefault(ev, 0) + wt
-        return self._from_pairs(weights.items())
+        return self.from_pairs(weights.items())
 
     def __neg__(self) -> Self:
         """Compute -self."""
@@ -572,7 +626,7 @@ class PMF(Collection[ET_co]):
             for ev1, wt1 in self.pairs:
                 ev = op(ev1, ev2, *args, **kwargs)
                 weights[ev] = weights.setdefault(ev, 0) + wt1 * wt2
-        return self._from_pairs(weights.items())
+        return self.from_pairs(weights.items())
 
     def __matmul__(self, other: Any) -> Self:
         """Compute self @ other."""
