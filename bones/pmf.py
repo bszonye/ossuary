@@ -267,6 +267,7 @@ class PMF(Collection[ET_co]):
 
     def probability(self, event: Any, /) -> Probability:
         """Return the probability of a given event."""
+        # TODO: accept multiple arguments?
         weight = self.weight(event)
         return Fraction(weight, self.total or 1)
 
@@ -274,6 +275,7 @@ class PMF(Collection[ET_co]):
 
     def weight(self, event: Any, /) -> Weight:
         """Return the probability weight of a given event."""
+        # TODO: accept multiple arguments?
         try:
             weight = self.mapping.get(event, 0)
         except TypeError:  # not Hashable

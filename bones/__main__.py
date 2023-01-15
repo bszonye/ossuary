@@ -25,10 +25,12 @@ def eval_demo(
     from . import __all__ as exports, __name__ as package_name
 
     package = import_module(package_name)
-    module_names = ["color", "pmf", "roll", "warhammer"]
+    bones_modules = ["color", "pmf", "roll", "warhammer"]
+    stdlib_modules = ["math", "operator"]
 
     g = {package_name: package}
-    g |= {name: import_module(f".{name}", package_name) for name in module_names}
+    g |= {name: import_module(f".{name}", package_name) for name in bones_modules}
+    g |= {name: import_module(name) for name in stdlib_modules}
     g |= {name: getattr(package, name) for name in exports}
 
     if interactive is Ellipsis:  # autodetect based on isatty
