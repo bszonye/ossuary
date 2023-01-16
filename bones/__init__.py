@@ -20,8 +20,10 @@ __all__ = [
     "dF",
     "Dice",
     "Die",
+    "PMF",
 ]
 
+from .pmf import PMF
 from .roll import (
     d,
     d00,

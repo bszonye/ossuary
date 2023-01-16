@@ -16,12 +16,12 @@ import itertools
 import math
 import numbers
 import operator
+import sys
 import types
 import typing
 from collections import Counter
 from collections.abc import (
     Callable,
-    Collection,
     Hashable,
     ItemsView,
     Iterable,
@@ -32,9 +32,19 @@ from collections.abc import (
 from fractions import Fraction
 from gettext import gettext as _t
 from types import MappingProxyType
-from typing import Any, cast, Self, Sized, SupportsInt, TypeAlias, TypeVar
+from typing import (
+    Any,
+    cast,
+    overload,
+    Self,
+    Sized,
+    SupportsIndex,
+    SupportsInt,
+    TypeAlias,
+    TypeVar,
+)
 
-from .color import ColorTriplet, interpolate_color
+from .color import adjust_lightness, ColorTriplet, interpolate_color
 
 # Type variables.
 ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
@@ -52,7 +62,7 @@ _Rational: TypeAlias = numbers.Rational | int
 _Real: TypeAlias = numbers.Real | float | int
 
 
-class PMF(Collection[ET_co]):
+class PMF(Sequence[ET_co]):
     """Generic base class for probability mass functions.
 
     A probability mass function (PMF) associates probabilities with
@@ -76,13 +86,14 @@ class PMF(Collection[ET_co]):
     typically maps all of the elementary events in the event space.  For
     example, the PMF for a coin flip is {heads: 1/2, tails: 1/2}.
 
-    This class represents probability as int weights instead of floats
-    or Fractions.  To convert to the usual [0, 1] range for probability,
-    divide by the total property, or use the "mass" methods instead of
-    "weight" methods.
+    This class represents probability internally as integral weights
+    instead of floating-point or fractional probabilities.  It offers
+    both count-based and probability-based accessors.
     """
 
     # TODO: event type check and conversion
+    # TODO: keep an index mapping?
+
     __weights: Mapping[ET_co, Weight]
     __total: Weight
     __gcd: Weight
@@ -95,7 +106,7 @@ class PMF(Collection[ET_co]):
         events: Mapping[ET_co, Weight] | Iterable[ET_co] = (),
         /,
         *,
-        normalize: bool = True,
+        normalize: bool = False,
     ) -> None:
         """Initialize PMF object."""
         self.from_iterable(events, instance=self, normalize=normalize)
@@ -107,7 +118,7 @@ class PMF(Collection[ET_co]):
         /,
         *,
         instance: Self | None = None,
-        normalize: bool = True,
+        normalize: bool = False,
     ) -> Self:
         """Construct a new PMF from an existing one."""
         # Create the instance if it doesn't already exist.
@@ -141,7 +152,7 @@ class PMF(Collection[ET_co]):
         /,
         *,
         instance: Self | None = None,
-        normalize: bool = True,
+        normalize: bool = False,
     ) -> Self:
         """Construct a new PMF from (event, weight) pairs."""
         # Create the instance if it doesn't already exist.
@@ -181,7 +192,7 @@ class PMF(Collection[ET_co]):
         /,
         *,
         instance: Self | None = None,
-        normalize: bool = True,
+        normalize: bool = False,
     ) -> Self:
         """Create a new PMF from an iterable."""
         # Create the instance if it doesn't already exist.
@@ -204,7 +215,7 @@ class PMF(Collection[ET_co]):
         return instance.from_pairs(pairs, instance=instance, normalize=normalize)
 
     @classmethod
-    def convert(cls, other: Any, /, normalize: bool = True) -> Self:
+    def convert(cls, other: Any, /, normalize: bool = False) -> Self:
         """Convert an object to a PMF."""
         # Return the other object directly if it's the same type of PMF.
         # Use the from_self constructor for other subtypes.
@@ -236,32 +247,42 @@ class PMF(Collection[ET_co]):
         return self.__gcd
 
     @functools.cached_property
-    def domain(self) -> Sequence[ET_co]:
+    def domain(self) -> tuple[ET_co, ...]:
         """Return all events defined for the PMF."""
         return tuple(self.mapping)
 
     @functools.cached_property
-    def support(self) -> Sequence[ET_co]:
+    def support(self) -> tuple[ET_co, ...]:
         """Return all events with non-zero probability."""
         return tuple(v for v, p in self.mapping.items() if p)
 
     @functools.cached_property
-    def weights(self) -> Sequence[Weight]:
+    def weights(self) -> tuple[Weight, ...]:
         """Return all event weights defined for the PMF."""
         return tuple(self.mapping.values())
 
     @functools.cached_property
-    def pairs(self) -> Sequence[tuple[ET_co, Weight]]:
+    def sum_weights(self) -> tuple[Weight, ...]:
+        """Return the cumulative (<=) weights for all events."""
+        return tuple(itertools.accumulate(self.weights))
+
+    @functools.cached_property
+    def tail_weights(self) -> tuple[Weight, ...]:
+        """Return the tail (not <=) weights for all events."""
+        return tuple(self.total - wt for wt in self.sum_weights)
+
+    @functools.cached_property
+    def pairs(self) -> tuple[tuple[ET_co, Weight], ...]:
         """Return all of the (event, weight) pairs."""
         return tuple(self.mapping.items())
 
     @functools.cached_property
-    def image(self) -> Sequence[Probability]:
+    def image(self) -> tuple[Probability, ...]:
         """Return all event probabilities."""
         return tuple(Fraction(w, self.total) for w in self.weights)
 
     @functools.cached_property
-    def graph(self) -> Sequence[tuple[ET_co, Probability]]:
+    def graph(self) -> tuple[tuple[ET_co, Probability], ...]:
         """Return all of the (event, probability) pairs."""
         return tuple((v, Fraction(w, self.total)) for v, w in self.mapping.items())
 
@@ -281,6 +302,12 @@ class PMF(Collection[ET_co]):
         except TypeError:  # not Hashable
             weight = 0
         return weight
+
+    def population(self) -> Iterator[ET_co]:
+        """Iterate over all events, repeated according to weight."""
+        return itertools.chain.from_iterable(
+            itertools.starmap(itertools.repeat, self.pairs)
+        )
 
     # ==================================================================
     # COPYING AND NORMALIZATION
@@ -375,7 +402,7 @@ class PMF(Collection[ET_co]):
         """Calculate the PMF standard distribtion as a float."""
         return math.sqrt(self.variance)
 
-    def quantiles(self, n: int | Auto = Ellipsis, /) -> Sequence[Sequence[ET_co]]:
+    def quantiles(self, n: int | Auto = Ellipsis, /) -> Sequence[tuple[ET_co, ...]]:
         """Partition the domain into equally likely groups.
 
         Quantiles divide a probability distribution into continuous,
@@ -517,7 +544,7 @@ class PMF(Collection[ET_co]):
             color = tuple(
                 interpolate_color(i, tmin=min(image), tmax=max(image)) for i in image
             )
-        edge = tuple((0.65 * r, 0.65 * g, 0.65 * b) for r, g, b in color)
+        edge = tuple(adjust_lightness(0.65, c) for c in color)
 
         chart = ax.bar(
             x=range(n),
@@ -525,6 +552,7 @@ class PMF(Collection[ET_co]):
             tick_label=vlabels,
             color=color,
             edgecolor=edge,
+            # hatch="/",
         )
         ax.set_xlabel("Events")  # TODO: customizable title
         ax.set_ylabel("Probability")
@@ -537,7 +565,8 @@ class PMF(Collection[ET_co]):
                 fontsize="x-small",
             )
 
-        plt.show()
+        with plt.rc_context({"hatch.linewidth": 8.5}):
+            plt.show()
 
     def tabulate(
         self,
@@ -599,14 +628,13 @@ class PMF(Collection[ET_co]):
 
     def __repr__(self) -> str:
         """Format the PMF for diagnostics."""
-        params = (
-            repr(dict(self.mapping))
-            if self.mapping
-            else f"normalize={self.__total!r}"
-            if self.__total != 1
-            else ""
-        )
-        return f"{type(self).__name__}({params})"
+        parameters: list[str] = []
+        if self.total:
+            parameters.append(repr(dict(self.mapping)))
+        if 1 < self.gcd:
+            parameters.append("normalize=False")
+        parameter_list = ", ".join(parameters)
+        return f"{type(self).__name__}({parameter_list})"
 
     def __str__(self) -> str:
         """Format the PMF for printing."""
@@ -616,7 +644,7 @@ class PMF(Collection[ET_co]):
     # COMBINATORICS
 
     @functools.lru_cache
-    def combinations(self, n: int, /) -> Iterable[Sequence[ET_co]]:
+    def combinations(self, n: int, /) -> Iterable[tuple[ET_co, ...]]:
         """Generate all distinct combinations of N outcomes."""
         if n < 0:
             raise ValueError("combinations must be non-negative")
@@ -624,9 +652,9 @@ class PMF(Collection[ET_co]):
         return combos
 
     @functools.lru_cache
-    def combination_weights(self, n: int) -> Mapping[Sequence[ET_co], Weight]:
+    def combination_weights(self, n: int) -> Mapping[tuple[ET_co, ...], Weight]:
         """Generate a weight mapping for the combinations method."""
-        weights: dict[Sequence[ET_co], Weight] = {}
+        weights: dict[tuple[ET_co, ...], Weight] = {}
         for combo in self.combinations(n):
             counter = Counter(combo)
             counts = tuple(sorted(counter.values()))
@@ -864,19 +892,45 @@ class PMF(Collection[ET_co]):
         return self.convert(other).binary_operator(self, operator.or_)
 
     # ==================================================================
-    # COLLECTION METHODS
+    # SEQUENCE METHODS
 
     def __contains__(self, event: Any) -> bool:
         """Test object for membership in the event domain."""
-        return bool(self.mapping.get(event, 0))
+        return event in self.mapping
 
     def __iter__(self) -> Iterator[ET_co]:
         """Iterate over the event domain."""
         return iter(self.domain)
 
+    def __reversed__(self) -> Iterator[ET_co]:
+        """Iterate over the event domain in reverse."""
+        return reversed(self.domain)
+
+    @overload
+    def __getitem__(self, i: SupportsIndex) -> ET_co:  # noqa: D105
+        ...
+
+    @overload
+    def __getitem__(self, i: slice) -> tuple[ET_co, ...]:  # noqa: D105
+        ...
+
+    def __getitem__(self, i: SupportsIndex | slice) -> ET_co | tuple[ET_co, ...]:
+        """Get the indexed item or slice from the event domain."""
+        return self.domain[i]
+
     def __len__(self) -> int:
         """Return the number of discrete values in the mapping."""
         return len(self.mapping)
+
+    def index(  # pyright: ignore
+        self, event: Any, start: int = 0, stop: int = sys.maxsize, /  # noqa: W504
+    ) -> int:
+        """Return the event's position in the domain."""
+        return self.domain.index(event, start, stop)
+
+    def count(self, event: Any, /) -> int:  # pyright: ignore
+        """Return the event's probability weight as its count."""
+        return self.weight(event)
 
     @functools.cached_property
     def _hash(self) -> int:

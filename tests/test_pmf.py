@@ -53,34 +53,15 @@ class TestPMFInit:
         pmf1 = PMF(counter, normalize=False)
         pmf2 = PMF(pmf1)
 
-        assert pmf1.mapping is not pmf2.mapping  # copy should NOT share data
+        assert pmf1.mapping is pmf2.mapping  # copy should share data
 
         assert len(pmf1) == len(counter)
         assert pmf1.mapping == dict(counter)
         assert pmf1.total == counter.total()
 
-        assert len(pmf2) == len(norm)
-        assert pmf2.mapping == dict(norm)
-        assert pmf2.total == norm.total()
-
-    def test_copy_normalized(self) -> None:
-        # Copy another PMF (with normalization).
-        pairs = [(1, 3), (2, 6)]
-        counter, norm = expected(pairs)
-        assert counter != norm
-
-        pmf1 = PMF(counter, normalize=False)
-        pmf2 = PMF(pmf1, normalize=True)
-
-        assert pmf1.mapping is not pmf2.mapping  # copy should NOT share data
-
-        assert len(pmf1) == len(counter)
-        assert pmf1.mapping == dict(counter)
-        assert pmf1.total == counter.total()
-
-        assert len(pmf2) == len(norm)
-        assert pmf2.mapping == dict(norm)
-        assert pmf2.total == norm.total()
+        assert len(pmf2) == len(counter)
+        assert pmf2.mapping == dict(counter)
+        assert pmf2.total == counter.total()
 
     def test_copy_exact(self) -> None:
         # Copy another PMF (without normalization).
@@ -100,6 +81,25 @@ class TestPMFInit:
         assert len(pmf1) == len(counter) == len(pmf2)
         assert pmf1.mapping == dict(counter) == pmf2.mapping
         assert pmf1.total == counter.total() == pmf2.total
+
+    def test_copy_normalized(self) -> None:
+        # Copy another PMF (with normalization).
+        pairs = [(1, 3), (2, 6)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        pmf1 = PMF(counter, normalize=False)
+        pmf2 = PMF(pmf1, normalize=True)
+
+        assert pmf1.mapping is not pmf2.mapping  # copy should NOT share data
+
+        assert len(pmf1) == len(counter)
+        assert pmf1.mapping == dict(counter)
+        assert pmf1.total == counter.total()
+
+        assert len(pmf2) == len(norm)
+        assert pmf2.mapping == dict(norm)
+        assert pmf2.total == norm.total()
 
     def test_copy_irreducible(self) -> None:
         # Copy a PMF that's irreducible (already in normal form).
@@ -123,20 +123,9 @@ class TestPMFInit:
 
         pmf = PMF(dict(counter))
 
-        assert len(pmf) == len(norm)
-        assert pmf.mapping == dict(norm)
-        assert pmf.total == norm.total()
-
-    def test_normalize_true(self) -> None:
-        pairs = [(0, 2), (3, 4), (7, 2)]
-        counter, norm = expected(pairs)
-        assert counter != norm
-
-        pmf = PMF(dict(counter), normalize=True)
-
-        assert len(pmf) == len(norm)
-        assert pmf.mapping == dict(norm)
-        assert pmf.total == norm.total()
+        assert len(pmf) == len(counter)
+        assert pmf.mapping == dict(counter)
+        assert pmf.total == counter.total()
 
     def test_normalize_false(self) -> None:
         pairs = [(0, 2), (3, 4), (7, 2)]
@@ -148,6 +137,17 @@ class TestPMFInit:
         assert len(pmf) == len(counter)
         assert pmf.mapping == dict(counter)
         assert pmf.total == counter.total()
+
+    def test_normalize_true(self) -> None:
+        pairs = [(0, 2), (3, 4), (7, 2)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        pmf = PMF(dict(counter), normalize=True)
+
+        assert len(pmf) == len(norm)
+        assert pmf.mapping == dict(norm)
+        assert pmf.total == norm.total()
 
     def test_dict(self) -> None:
         pairs = [(0, 1), (3, 2), (7, 1)]
@@ -364,9 +364,9 @@ class TestPMFConvert:
         assert pmf1.mapping == dict(counter)
         assert pmf1.total == counter.total()
 
-        assert len(pmf2) == len(norm)
-        assert pmf2.mapping == dict(norm)
-        assert pmf2.total == norm.total()
+        assert len(pmf2) == len(counter)
+        assert pmf2.mapping == dict(counter)
+        assert pmf2.total == counter.total()
 
     def test_supertype(self) -> None:
         pairs = [(1, 3), (2, 6)]
@@ -383,9 +383,9 @@ class TestPMFConvert:
         assert pmf1.mapping == dict(counter)
         assert pmf1.total == counter.total()
 
-        assert len(pmf2) == len(norm)
-        assert pmf2.mapping == dict(norm)
-        assert pmf2.total == norm.total()
+        assert len(pmf2) == len(counter)
+        assert pmf2.mapping == dict(counter)
+        assert pmf2.total == counter.total()
 
 
 class TestPMFAccessors:
@@ -399,6 +399,8 @@ class TestPMFAccessors:
         assert pmf.domain == ()
         assert pmf.support == ()
         assert pmf.weights == ()
+        assert pmf.sum_weights == ()
+        assert pmf.tail_weights == ()
         assert pmf.pairs == ()
         assert pmf.image == ()
         assert pmf.graph == ()
@@ -410,6 +412,10 @@ class TestPMFAccessors:
         domain = tuple(mapping.keys())
         support = tuple(ev for ev, wt in mapping.items() if wt)
         weights = tuple(mapping.values())
+        sum_weights = tuple(itertools.accumulate(mapping.values()))
+        tail_weights = tuple(
+            total - wt for wt in itertools.accumulate(mapping.values())
+        )
         pairs = tuple((ev, wt) for ev, wt in mapping.items())
         image = tuple(Fraction(wt, total) for wt in mapping.values())
         graph = tuple((ev, Fraction(wt, total)) for ev, wt in mapping.items())
@@ -423,6 +429,8 @@ class TestPMFAccessors:
         assert pmf.domain == domain
         assert pmf.support == support
         assert pmf.weights == weights
+        assert pmf.sum_weights == sum_weights
+        assert pmf.tail_weights == tail_weights
         assert pmf.pairs == pairs
         assert pmf.image == image
         assert pmf.graph == graph
@@ -697,9 +705,9 @@ class TestPMFUnaryOperator:
         pfloat = tuple(x / 8 for x in range(-12, 13))
         pmf = PMF(pfloat)
         assert math.trunc(pmf).pairs == (
-            (-1, 1),
-            (0, 3),
-            (1, 1),
+            (-1, 5),
+            (0, 15),
+            (1, 5),
         )
 
     def test_floor(self) -> None:

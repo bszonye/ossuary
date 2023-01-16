@@ -51,6 +51,14 @@ class Die(BaseDie[int]):
             faces = range(1, 1 + sides)
         super().__init__(faces, normalize=False)
 
+    def __repr__(self) -> str:
+        """Format the PMF for diagnostics."""
+        parameters: list[str] = []
+        if self.total:
+            parameters.append(repr(tuple(self.population())))
+        parameter_list = ", ".join(parameters)
+        return f"{type(self).__name__}({parameter_list})"
+
 
 # Call d(K) to create the PMF for rolling 1dX.
 d = Die
