@@ -789,3 +789,64 @@ class TestPMFBinaryOperator:
 
     def test_or(self) -> None:
         pass  # TODO
+
+
+class TestPMFSequence:
+    def test_contains(self) -> None:
+        pass  # TODO
+
+    def test_iter(self) -> None:
+        pass  # TODO
+
+    def test_reversed(self) -> None:
+        pass  # TODO
+
+    def test_getitem_event(self) -> None:
+        pass  # TODO
+
+    def test_getitem_slice(self) -> None:
+        pass  # TODO
+
+    def test_len(self) -> None:
+        pass  # TODO
+
+    def test_index(self) -> None:
+        pets = ("cat", "dog", "bird", "fish", "snake")
+        pmf = PMF(pets)
+        for ev in pets:
+            assert pmf.index(ev) == pets.index(ev)
+
+    def test_index_from_self(self) -> None:
+        pets = ("cat", "dog", "bird", "fish", "snake")
+        pmf1 = PMF(pets)
+        pmf2 = PMF.from_self(pmf1)
+        for ev in pets:
+            assert pmf1.index(ev) == pets.index(ev)
+            assert pmf2.index(ev) == pets.index(ev)
+
+    def test_index_from_pairs(self) -> None:
+        pets = ("cat", "dog", "bird", "fish", "snake")
+        pairs = tuple((ev, i) for i, ev in enumerate(pets))
+        pmf = PMF.from_pairs(pairs)
+        for ev, i in pairs:
+            assert pmf.index(ev) == i
+
+    def test_index_from_iterable(self) -> None:
+        pets = ("cat", "dog", "bird", "fish", "snake")
+        pmf = PMF.from_iterable(pets)
+        for ev in pets:
+            assert pmf.index(ev) == pets.index(ev)
+
+    def test_index_errors(self) -> None:
+        pets = ("cat", "dog", "bird", "fish", "snake")
+        with pytest.raises(ValueError):
+            PMF(pets).index("spider")
+        with pytest.raises(ValueError):
+            PMF(range(1, 7)).index(0)
+            PMF(range(1, 7)).index(7)
+
+    def test_count(self) -> None:
+        pass  # TODO
+
+    def test_hash(self) -> None:
+        pass  # TODO

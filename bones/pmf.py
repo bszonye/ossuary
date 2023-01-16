@@ -16,7 +16,6 @@ import itertools
 import math
 import numbers
 import operator
-import sys
 import types
 import typing
 from collections import Counter
@@ -92,11 +91,11 @@ class PMF(Sequence[ET_co]):
     """
 
     # TODO: event type check and conversion
-    # TODO: keep an index mapping?
 
     __weights: Mapping[ET_co, Weight]
     __total: Weight
     __gcd: Weight
+    __index: Mapping[ET_co, int]
 
     # ==================================================================
     # CONSTRUCTORS
@@ -130,19 +129,17 @@ class PMF(Sequence[ET_co]):
             pairs = other.pairs
             return cls.from_pairs(pairs, instance=instance, normalize=normalize)
 
-        # Return an exact copy if possible.
-        if other.is_normal() or not normalize:
+        if normalize and not other.is_normal():
+            gcd = other.gcd
+            weights: dict[ET_co, Weight] = {ev: wt // gcd for ev, wt in other.pairs}
+            instance.__weights = MappingProxyType(weights)
+            instance.__total = other.total // gcd
+            instance.__gcd = 1
+        else:
             instance.__weights = other.__weights
             instance.__total = other.__total
             instance.__gcd = other.__gcd
-            return instance
-
-        # Make a normalized copy.
-        gcd = other.gcd
-        weights: dict[ET_co, Weight] = {ev: wt // gcd for ev, wt in other.pairs}
-        instance.__weights = MappingProxyType(weights)
-        instance.__total = other.total // gcd
-        instance.__gcd = 1
+        instance.__index = other.__index
         return instance
 
     @classmethod
@@ -183,6 +180,9 @@ class PMF(Sequence[ET_co]):
         instance.__weights = MappingProxyType(weights)
         instance.__total = total
         instance.__gcd = gcd
+        instance.__index = MappingProxyType(
+            {ev: i for i, ev in enumerate(instance.domain)}
+        )
         return instance
 
     @classmethod
@@ -922,11 +922,12 @@ class PMF(Sequence[ET_co]):
         """Return the number of discrete values in the mapping."""
         return len(self.mapping)
 
-    def index(  # pyright: ignore
-        self, event: Any, start: int = 0, stop: int = sys.maxsize, /  # noqa: W504
-    ) -> int:
+    def index(self, event: Any, /) -> int:  # type: ignore[override]
         """Return the event's position in the domain."""
-        return self.domain.index(event, start, stop)
+        try:
+            return self.__index[event]
+        except KeyError:
+            raise ValueError(f"{event!r} not in {type(self).__name__}") from None
 
     def count(self, event: Any, /) -> int:  # pyright: ignore
         """Return the event's probability weight as its count."""
