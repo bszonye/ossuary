@@ -398,6 +398,7 @@ class TestPMFAccessors:
         assert pmf.gcd == 0
         assert pmf.domain == ()
         assert pmf.support == ()
+        assert pmf.zeroes == ()
         assert pmf.weights == ()
         assert pmf.sum_weights == ()
         assert pmf.tail_weights == ()
@@ -411,6 +412,7 @@ class TestPMFAccessors:
         gcd = math.gcd(*mapping.values())
         domain = tuple(mapping.keys())
         support = tuple(ev for ev, wt in mapping.items() if wt)
+        zeroes = tuple(ev for ev, wt in mapping.items() if not wt)
         weights = tuple(mapping.values())
         sum_weights = tuple(itertools.accumulate(mapping.values()))
         tail_weights = tuple(
@@ -428,6 +430,7 @@ class TestPMFAccessors:
         assert pmf.gcd == gcd
         assert pmf.domain == domain
         assert pmf.support == support
+        assert pmf.zeroes == zeroes
         assert pmf.weights == weights
         assert pmf.sum_weights == sum_weights
         assert pmf.tail_weights == tail_weights

@@ -254,7 +254,12 @@ class PMF(Sequence[ET_co]):
     @functools.cached_property
     def support(self) -> tuple[ET_co, ...]:
         """Return all events with non-zero probability."""
-        return tuple(v for v, p in self.mapping.items() if p)
+        return tuple(ev for ev, wt in self.mapping.items() if wt)
+
+    @functools.cached_property
+    def zeroes(self) -> tuple[ET_co, ...]:
+        """Return all events with zero probability."""
+        return tuple(ev for ev, wt in self.mapping.items() if not wt)
 
     @functools.cached_property
     def weights(self) -> tuple[Weight, ...]:
@@ -302,12 +307,6 @@ class PMF(Sequence[ET_co]):
         except TypeError:  # not Hashable
             weight = 0
         return weight
-
-    def population(self) -> Iterator[ET_co]:
-        """Iterate over all events, repeated according to weight."""
-        return itertools.chain.from_iterable(
-            itertools.starmap(itertools.repeat, self.pairs)
-        )
 
     # ==================================================================
     # COPYING AND NORMALIZATION
@@ -360,7 +359,7 @@ class PMF(Sequence[ET_co]):
     # ==================================================================
     # STATISTICS
 
-    # TODO: median, variance, stdev, etc.
+    # TODO: median, mode
 
     @functools.cached_property
     def _mean_numerator(self: "PMF[_Real]") -> ET_co:
@@ -401,6 +400,12 @@ class PMF(Sequence[ET_co]):
     def standard_deviation(self: "PMF[_Real]") -> float:
         """Calculate the PMF standard distribtion as a float."""
         return math.sqrt(self.variance)
+
+    def population(self) -> Iterator[ET_co]:
+        """Iterate over all events, repeated by weight."""
+        return itertools.chain.from_iterable(
+            itertools.starmap(itertools.repeat, self.pairs)
+        )
 
     def quantiles(self, n: int | Auto = Ellipsis, /) -> Sequence[tuple[ET_co, ...]]:
         """Partition the domain into equally likely groups.
@@ -463,6 +468,9 @@ class PMF(Sequence[ET_co]):
     def quantile_name(quantile: int | Sized, /, *, plural: bool = True) -> str:
         """Return the name for a quantile of given size."""
         names = {
+            # TODO: cut names (median) vs group names (half)
+            # TODO: move this data outside of the function somewhere
+            2: (_t("half"), _t("halves")),
             3: (_t("tertile"), _t("tertiles")),
             4: (_t("quartile"), _t("quartiles")),
             5: (_t("quintile"), _t("quintiles")),
