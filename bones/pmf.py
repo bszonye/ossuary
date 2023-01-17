@@ -463,31 +463,6 @@ class PMF(Sequence[ET_co]):
 
         return tuple(tuple(group) for group in groups)
 
-    @staticmethod
-    @functools.cache
-    def quantile_name(quantile: int | Sized, /, *, plural: bool = True) -> str:
-        """Return the name for a quantile of given size."""
-        names = {
-            # TODO: cut names (median) vs group names (half)
-            # TODO: move this data outside of the function somewhere
-            2: (_t("half"), _t("halves")),
-            3: (_t("tertile"), _t("tertiles")),
-            4: (_t("quartile"), _t("quartiles")),
-            5: (_t("quintile"), _t("quintiles")),
-            6: (_t("sextile"), _t("sextiles")),
-            7: (_t("septile"), _t("septiles")),
-            8: (_t("octile"), _t("octiles")),
-            10: (_t("decile"), _t("deciles")),
-            16: (_t("hexadecile"), _t("hexadeciles")),
-            20: (_t("ventile"), _t("ventiles")),
-            100: (_t("centile"), _t("centiles")),
-        }
-        default = (_t("{}-quantile"), _t("{}-quantiles"))
-
-        size = int(quantile) if isinstance(quantile, SupportsInt) else len(quantile)
-        name = names.get(size, default)[int(plural)].format(size)
-        return name
-
     # ==================================================================
     # TABULATON AND OUTPUT
 
@@ -540,13 +515,14 @@ class PMF(Sequence[ET_co]):
                 hues = min(max(180, 30 * qmax), 285)
                 hmin = (0 - hues / 2) / 360
                 hmax = (0 + hues / 2) / 360
-                highlight = 1.0 if nq < 10 else 2 / 3
                 qcolor = interpolate_color(
-                    i, tmax=qmax, hmin=hmin, hmax=hmax, highlight=highlight
+                    i, tmax=qmax, hmin=hmin, hmax=hmax, lmin=0.15, lmax=0.25
                 )
                 color = color + (qcolor,) * len(quantiles[i])
-                pgroup = float(sum(self.probability(ev) for ev in quantiles[i]))
-                legend.append(Patch(color=qcolor, label=f"{100*pgroup:\u2007>6.2f}"))
+                # Label quantiles from 1/N to N/N.
+                width = len(str(nq))
+                label = f"{i+1:\u2007>{width}d}/{nq}"
+                legend.append(Patch(color=qcolor, label=label))
         else:
             # Color probabilities from violet to red.
             color = tuple(
@@ -567,7 +543,7 @@ class PMF(Sequence[ET_co]):
         ax.bar_label(chart, labels=plabels, padding=1, fontsize="x-small")
         if legend:
             ax.legend(
-                title=self.quantile_name(len(quantiles)),
+                title=quantile_name(len(quantiles)),
                 title_fontsize="small",
                 handles=legend,
                 fontsize="x-small",
@@ -980,3 +956,64 @@ def multiset_perm(items: Iterable[int], /) -> int:
     for count in reversed(k[:-1]):
         weight //= math.factorial(count)
     return weight
+
+
+QUANTILE_NAMES = {
+    "cut": {
+        0: (_t("{}-quartile"), _t("{}-quartiles")),
+        2: (_t("median"), _t("medians")),
+        3: (_t("tertile"), _t("tertiles")),
+        4: (_t("quartile"), _t("quartiles")),
+        5: (_t("quintile"), _t("quintiles")),
+        6: (_t("sextile"), _t("sextiles")),
+        7: (_t("septile"), _t("septiles")),
+        8: (_t("octile"), _t("octiles")),
+        10: (_t("decile"), _t("deciles")),
+        16: (_t("hexadecile"), _t("hexadeciles")),
+        20: (_t("ventile"), _t("ventiles")),
+        100: (_t("centile"), _t("centiles")),
+    },
+    "group": {
+        0: (_t("{}-quartile"), _t("{}-quartiles")),
+        1: (_t("whole"), _t("wholes")),
+        2: (_t("half"), _t("halves")),
+        3: (_t("tertile"), _t("tertiles")),
+        4: (_t("quartile"), _t("quartiles")),
+        5: (_t("quintile"), _t("quintiles")),
+        6: (_t("sextile"), _t("sextiles")),
+        7: (_t("septile"), _t("septiles")),
+        8: (_t("octile"), _t("octiles")),
+        10: (_t("decile"), _t("deciles")),
+        16: (_t("hexadecile"), _t("hexadeciles")),
+        20: (_t("ventile"), _t("ventiles")),
+        100: (_t("centile"), _t("centiles")),
+    },
+    "fraction": {
+        0: (_t("{}-quartile"), _t("{}-quartiles")),
+        1: (_t("whole"), _t("wholes")),
+        2: (_t("half"), _t("halves")),
+        3: (_t("third"), _t("thirds")),
+        4: (_t("quarter"), _t("quarters")),
+        5: (_t("fifth"), _t("fifths")),
+        6: (_t("sixth"), _t("sixths")),
+        7: (_t("seventh"), _t("sevenths")),
+        8: (_t("eighth"), _t("eighths")),
+        9: (_t("ninth"), _t("ninths")),
+        10: (_t("tenth"), _t("tenths")),
+        12: (_t("twelfth"), _t("twelfths")),
+        16: (_t("sixteenth"), _t("sixteenths")),
+        20: (_t("twentieth"), _t("twentieths")),
+        100: (_t("hundredth"), _t("hundredths")),
+    },
+}
+
+
+@functools.cache
+def quantile_name(
+    quantile: int | Sized, /, *, kind: str = "group", plural: bool = True
+) -> str:
+    """Return the name for a quantile of given size."""
+    size = int(quantile) if isinstance(quantile, SupportsInt) else len(quantile)
+    default = QUANTILE_NAMES[kind][0]
+    name = QUANTILE_NAMES[kind].get(size, default)
+    return name[int(plural)].format(size)

@@ -5,11 +5,12 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 import itertools
 import math
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from fractions import Fraction
 from typing import Any, TypeAlias, TypeVar
 
 import pytest
+from pytest import approx  # pyright: ignore[reportUnknownVariableType]
 
 from bones.pmf import PMF, Weight
 
@@ -626,6 +627,38 @@ class TestPMFCopy:
     def test_short_sorts(self) -> None:
         assert PMF().is_sorted()
         assert PMF((1,)).is_sorted()
+
+
+class TestPMFStatistics:
+    def test_mean(self) -> None:
+        d6 = PMF(range(1, 7))
+        assert d6.exact_mean == Fraction(7, 2)
+        assert d6.mean == 3.5
+        with pytest.raises(ZeroDivisionError):
+            PMF().exact_mean
+        with pytest.raises(ZeroDivisionError):
+            PMF().mean
+
+    def test_variance(self) -> None:
+        d6 = PMF(range(1, 7))
+        assert d6.exact_variance == Fraction(35, 12)
+        assert d6.variance == approx(35 / 12)
+        with pytest.raises(ZeroDivisionError):
+            PMF().exact_variance
+        with pytest.raises(ZeroDivisionError):
+            PMF().variance
+
+    def test_standard_deviation(self) -> None:
+        d6 = PMF(range(1, 7))
+        assert d6.standard_deviation == approx(math.sqrt(35 / 12))
+        with pytest.raises(ZeroDivisionError):
+            PMF().standard_deviation
+
+    def test_population(self) -> None:
+        pmf = PMF({1: 3, 2: 2, 3: 1, 4: 0})
+        pop = pmf.population()
+        assert isinstance(pop, Iterator)
+        assert tuple(pop) == (1, 1, 1, 2, 2, 3)
 
 
 class TestPMFUnaryOperator:

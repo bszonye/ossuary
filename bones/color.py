@@ -31,8 +31,8 @@ def clip(c: ColorTriplet, /) -> ColorTriplet:
     """Clip color channels to the [0, 1] interval."""
     r, g, b = c
     r = max(0.0, min(r, 1.0))
-    g = max(0.0, min(r, 1.0))
-    b = max(0.0, min(r, 1.0))
+    g = max(0.0, min(g, 1.0))
+    b = max(0.0, min(b, 1.0))
     return r, g, b
 
 
@@ -101,7 +101,11 @@ def interpolate_color(
     tmax: float = 1.0,
     hmin: float = 0.75,
     hmax: float = 0.0,
-    highlight: float = 1.0,
+    lstar: float = 0.3,
+    lmin: float = 0.3,
+    lmax: float = 0.3,
+    lramp: float = 0.25,
+    yellow: float = 0.85,
 ) -> ColorTriplet:
     """Translate a range of numbers to a range of colors."""
     # Normalize t to the [0.0, 1.0] interval and interpolate a hue.
@@ -110,17 +114,14 @@ def interpolate_color(
     # Widen CMY and narrow RGB to smooth color transitions.
     # hue += math.sin(6.0 * math.pi * hue) / 36.0
     r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
-    Lstar = lightness((r, g, b))
-    if Lstar < 0.5:
-        # Lighten dark colors.
-        Lnew = Lstar + (0.5 - Lstar) * 0.4
-        r, g, b = lighten(Lnew, (r, g, b))
-    else:
-        # Dim bright colors, with a partial exception for yellows.
-        yellow = 1.0 - 6.0 * abs(min(hue, 1 / 3) - (1 / 6))
-        Lnew = 0.5 + 0.33 * yellow
-        r, g, b = darken(Lnew, (r, g, b))
-    if t in (tmin, tmax):
-        # Emphasize the colors at the end of the range.
-        r, g, b = adjust_lightness(highlight, (r, g, b))
-    return r, g, b
+
+    # Adjust lightness near the ends of the range.
+    if x < lramp:
+        lstar = (lstar - lmin) * (1.0 / lramp) * x + lmin
+    elif (1.0 - lramp) < x:
+        lstar = (lstar - lmax) * (1.0 / lramp) * (1.0 - x) + lmax
+    # Keep yellows bright.
+    ymix = 1.0 - 6.0 * abs(min(hue, 1 / 3) - (1 / 6))
+    lstar = (yellow - lstar) * ymix + lstar
+    # Return the color with adjusted lightness.
+    return clip(set_lightness(lstar, (r, g, b)))
