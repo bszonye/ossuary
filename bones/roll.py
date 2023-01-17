@@ -24,32 +24,73 @@ __all__ = [
     "dF",
 ]
 
+import functools
 import itertools
 import math
-import typing
 from collections import Counter
-from collections.abc import Collection, Iterable
-from typing import Any, Self, TypeVar
+from collections.abc import Collection, Iterable, Iterator
+from typing import Optional, overload, Self, SupportsInt, TypeVar
 
 from .pmf import multiset_perm, PMF, Weight
 
 ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
 
 
-# TODO: Eliminate the separate base class if possible.
-class BaseDie(PMF[ET_co]):
-    """Model for rolling a die with arbitrary faces."""
+class Die(PMF[ET_co]):
+    """Model for rolling a die."""
 
+    @overload
+    def __init__(self: "Die[int]", /, *, reverse: bool = False) -> None:  # noqa: D107
+        ...
 
-class Die(BaseDie[int]):
-    """Model for rolling a numbered die."""
+    @overload
+    def __init__(
+        self: "Die[int]", faces: SupportsInt, /, *, reverse: bool = False
+    ) -> None:  # noqa: D107
+        ...
 
-    def __init__(self, faces: Iterable[int] | int = 6, /) -> None:
+    @overload
+    def __init__(
+        self, faces: Iterable[ET_co], /, *, reverse: bool = False
+    ) -> None:  # noqa: D107
+        ...
+
+    def __init__(
+        self, faces: Iterable[ET_co] | SupportsInt = 6, /, *, reverse: bool = False
+    ) -> None:
         """Initialze the PMF for a die with the given faces."""
-        if isinstance(faces, typing.SupportsInt):
-            sides = int(faces)
-            faces = range(1, 1 + sides)
-        super().__init__(faces, normalize=False)
+        match faces:
+            case PMF():
+                self.from_self(faces, instance=self, reverse=reverse, normalize=False)
+            case SupportsInt():
+                self.from_int(int(faces), instance=self, reverse=reverse)
+            case _:
+                pairs: Iterator[tuple[ET_co, Weight]] = ((face, 1) for face in faces)
+                self.from_pairs(
+                    pairs, instance=self, reverse=reverse, normalize=False
+                )
+
+    @classmethod
+    @functools.cache
+    def from_int(
+        cls: "type[Die[int]]",
+        n: int = 6,
+        /,
+        *,
+        instance: Optional["Die[int]"] = None,
+        reverse: bool = False,
+    ) -> "Die[int]":
+        """Create a die with faces numbered from 1 to n."""
+        # Create the instance if it doesn't already exist.
+        if instance is None:
+            instance = cls.__new__(cls)
+
+        sides = int(n)
+        faces = range(1, 1 + sides)
+        pairs: Iterator[tuple[int, Weight]] = ((event, 1) for event in faces)
+        if reverse:
+            pairs = reversed(tuple(pairs))
+        return cls.from_pairs(pairs, normalize=False, instance=instance)
 
     def __repr__(self) -> str:
         """Format the PMF for diagnostics."""
@@ -61,7 +102,7 @@ class Die(BaseDie[int]):
 
 
 # Call d(K) to create the PMF for rolling 1dX.
-d = Die
+d = Die.from_int
 
 # Common die sizes.
 d2 = d(2)
@@ -103,22 +144,10 @@ class DiceTuplePMF(PMF[DiceTuple]):
     """
 
     @classmethod
-    def NdX(cls, n: int = 1, die: Die = d6) -> Self:
-        """Create the PMF for rolling and adding several dice."""
-        mapping: dict[Any, Weight] = {}
-        for combo in die.combinations(n):
-            counter = Counter(combo)
-            counts = tuple(sorted(counter.values()))
-            cperms = multiset_perm(counts)
-            cweight = math.prod(die.weight(v) for v in counter.elements())
-            mapping[combo] = cperms * cweight
-        return cls(mapping)
-
-    @classmethod
     def NdX_select(
         cls,
         n: int = 1,
-        die: Die = d6,
+        die: Die[int] = d6,
         *,
         dh: int = 0,
         dl: int = 0,
@@ -223,7 +252,7 @@ class DiceTuplePMF(PMF[DiceTuple]):
             pweight[vcombo] = weight
         return cls(pweight)
 
-    def sum(self) -> Die:
+    def sum(self) -> Die[int]:
         """Sum the dice in each roll and return the resulting PMF."""
         weights: dict[int, Weight] = {}
         for combo, count in self.mapping.items():

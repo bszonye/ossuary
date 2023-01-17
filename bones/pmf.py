@@ -105,10 +105,13 @@ class PMF(Sequence[ET_co]):
         events: Mapping[ET_co, Weight] | Iterable[ET_co] = (),
         /,
         *,
+        reverse: bool = False,
         normalize: bool = False,
     ) -> None:
         """Initialize PMF object."""
-        self.from_iterable(events, instance=self, normalize=normalize)
+        self.from_iterable(
+            events, instance=self, reverse=reverse, normalize=normalize
+        )
 
     @classmethod
     def from_self(
@@ -117,6 +120,7 @@ class PMF(Sequence[ET_co]):
         /,
         *,
         instance: Self | None = None,
+        reverse: bool = False,
         normalize: bool = False,
     ) -> Self:
         """Construct a new PMF from an existing one."""
@@ -124,10 +128,12 @@ class PMF(Sequence[ET_co]):
         if instance is None:
             instance = cls.__new__(cls)
 
-        # Rebuild from (event, weight) pairs if the type doesn't match.
-        if type(other) is not cls:
+        # Rebuild from (event, weight) pairs if type or direction doesn't match.
+        if reverse or type(other) is not cls:
             pairs = other.pairs
-            return cls.from_pairs(pairs, instance=instance, normalize=normalize)
+            return cls.from_pairs(
+                pairs, instance=instance, reverse=reverse, normalize=normalize
+            )
 
         if normalize and not other.is_normal():
             gcd = other.gcd
@@ -149,12 +155,16 @@ class PMF(Sequence[ET_co]):
         /,
         *,
         instance: Self | None = None,
+        reverse: bool = False,
         normalize: bool = False,
     ) -> Self:
         """Construct a new PMF from (event, weight) pairs."""
         # Create the instance if it doesn't already exist.
         if instance is None:
             instance = cls.__new__(cls)
+        # Reverse as needed.
+        if reverse:
+            pairs = reversed(tuple(pairs))
         # Collect event weights.
         weights: dict[ET_co, Weight] = {}
         total = 0
@@ -192,6 +202,7 @@ class PMF(Sequence[ET_co]):
         /,
         *,
         instance: Self | None = None,
+        reverse: bool = False,
         normalize: bool = False,
     ) -> Self:
         """Create a new PMF from an iterable."""
@@ -202,7 +213,7 @@ class PMF(Sequence[ET_co]):
         match events:
             case PMF():
                 return instance.from_self(
-                    events, instance=instance, normalize=normalize
+                    events, instance=instance, reverse=reverse, normalize=normalize
                 )
             case Mapping():
                 # The from_pairs constructor will check Weight types.
@@ -212,7 +223,9 @@ class PMF(Sequence[ET_co]):
             case _:
                 raise TypeError(f"not iterable: {type(events).__name__!r}")
         # Finish initializion from the (event, weight) pairs.
-        return instance.from_pairs(pairs, instance=instance, normalize=normalize)
+        return instance.from_pairs(
+            pairs, instance=instance, reverse=reverse, normalize=normalize
+        )
 
     @classmethod
     def convert(cls, other: Any, /, normalize: bool = False) -> Self:
@@ -521,8 +534,6 @@ class PMF(Sequence[ET_co]):
                 color = color + (qcolor,) * len(quantiles[i])
                 # Label quantiles from 1/N to N/N.
                 width = len(str(nq))
-                # TODO: report bug
-                # label = f"{i:\u2007>{width}d}"
                 fill = "\u2007"  # U+2007 FIGURE SPACE, &numsp;
                 label = f"{1+i:{fill}>{width}d}/{nq}"
                 legend.append(Patch(color=qcolor, label=label))

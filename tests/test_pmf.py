@@ -301,6 +301,14 @@ class TestPMFFromSelf:
             assert pmf.mapping == dict(norm)
             assert pmf.total == norm.total()
 
+    def test_reverse(self) -> None:
+        pmf1 = PMF((1, 2, 3))
+        pmf2 = PMF.from_self(pmf1, reverse=True)
+        assert len(pmf1) == len(pmf2)
+        assert pmf1.mapping == pmf2.mapping
+        assert pmf1.total == pmf2.total
+        assert pmf1.domain == tuple(reversed(pmf2.domain))
+
 
 class TestPMFFromPairs:
     def test_empty(self) -> None:
@@ -316,6 +324,14 @@ class TestPMFFromPairs:
         assert len(pmf) == len(items)
         assert pmf.mapping == items
         assert pmf.total == sum(items.values())
+
+    def test_reverse(self) -> None:
+        items = {0: 1, 3: 2, 7: 1}
+        pmf = PMF.from_pairs(items.items(), reverse=True)
+        assert len(pmf) == len(items)
+        assert pmf.mapping == items
+        assert pmf.total == sum(items.values())
+        assert pmf.domain == (7, 3, 0)
 
 
 class TestPMFFromIterable:
@@ -333,6 +349,14 @@ class TestPMFFromIterable:
         assert pmf.mapping == {1: 3, 2: 2, 3: 1}
         assert pmf.total == len(items)
         assert pmf.domain == (1, 3, 2)
+
+    def test_reverse(self) -> None:
+        items = (1, 3, 1, 2, 1, 2)
+        pmf = PMF.from_iterable(items, reverse=True)
+        assert len(pmf) == 3
+        assert pmf.mapping == {1: 3, 2: 2, 3: 1}
+        assert pmf.total == len(items)
+        assert pmf.domain == (2, 1, 3)
 
 
 class TestPMFConvert:
