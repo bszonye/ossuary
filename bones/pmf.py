@@ -521,7 +521,10 @@ class PMF(Sequence[ET_co]):
                 color = color + (qcolor,) * len(quantiles[i])
                 # Label quantiles from 1/N to N/N.
                 width = len(str(nq))
-                label = f"{i+1:\u2007>{width}d}/{nq}"
+                # TODO: report bug
+                # label = f"{i:\u2007>{width}d}"
+                fill = "\u2007"  # U+2007 FIGURE SPACE, &numsp;
+                label = f"{1+i:{fill}>{width}d}/{nq}"
                 legend.append(Patch(color=qcolor, label=label))
         else:
             # Color probabilities from violet to red.
