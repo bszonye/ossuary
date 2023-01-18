@@ -29,7 +29,7 @@ import itertools
 import math
 from collections import Counter
 from collections.abc import Collection, Iterable, Iterator
-from typing import Optional, overload, Self, SupportsInt, TypeVar
+from typing import cast, overload, Self, TypeVar
 
 from .pmf import multiset_perm, PMF, Weight
 
@@ -45,7 +45,7 @@ class Die(PMF[ET_co]):
 
     @overload
     def __init__(
-        self: "Die[int]", faces: SupportsInt, /, *, reverse: bool = False
+        self: "Die[int]", faces: int, /, *, reverse: bool = False
     ) -> None:  # noqa: D107
         ...
 
@@ -56,41 +56,37 @@ class Die(PMF[ET_co]):
         ...
 
     def __init__(
-        self, faces: Iterable[ET_co] | SupportsInt = 6, /, *, reverse: bool = False
+        self, faces: Iterable[ET_co] | int = 6, /, *, reverse: bool = False
     ) -> None:
         """Initialze the PMF for a die with the given faces."""
         match faces:
             case PMF():
                 self.from_self(faces, instance=self, reverse=reverse, normalize=False)
-            case SupportsInt():
-                self.from_int(int(faces), instance=self, reverse=reverse)
+            case int():
+                # Copy self.d(faces) to share internals if possible.
+                die = cast(Self, self.d(faces, reverse=reverse))
+                self.from_self(die, instance=self, normalize=False)
             case _:
-                pairs: Iterator[tuple[ET_co, Weight]] = ((face, 1) for face in faces)
-                self.from_pairs(
-                    pairs, instance=self, reverse=reverse, normalize=False
+                self.from_iterable(
+                    faces, instance=self, reverse=reverse, normalize=False
                 )
 
     @classmethod
     @functools.cache
-    def from_int(
+    def d(
         cls: "type[Die[int]]",
         n: int = 6,
         /,
         *,
-        instance: Optional["Die[int]"] = None,
         reverse: bool = False,
     ) -> "Die[int]":
         """Create a die with faces numbered from 1 to n."""
-        # Create the instance if it doesn't already exist.
-        if instance is None:
-            instance = cls.__new__(cls)
-
         sides = int(n)
         faces = range(1, 1 + sides)
         pairs: Iterator[tuple[int, Weight]] = ((event, 1) for event in faces)
         if reverse:
             pairs = reversed(tuple(pairs))
-        return cls.from_pairs(pairs, normalize=False, instance=instance)
+        return cls.from_pairs(pairs, normalize=False)
 
     def __repr__(self) -> str:
         """Format the PMF for diagnostics."""
@@ -102,7 +98,7 @@ class Die(PMF[ET_co]):
 
 
 # Call d(K) to create the PMF for rolling 1dX.
-d = Die.from_int
+d = Die.d
 
 # Common die sizes.
 d2 = d(2)

@@ -11,6 +11,7 @@ __all__ = [
     "multiset_perm",
 ]
 
+import enum
 import functools
 import itertools
 import math
@@ -972,8 +973,8 @@ def multiset_perm(items: Iterable[int], /) -> int:
     return weight
 
 
-QUANTILE_NAMES = {
-    "cut": {
+quantile_names = (
+    {
         0: (_t("{}-quartile"), _t("{}-quartiles")),
         2: (_t("median"), _t("medians")),
         3: (_t("tertile"), _t("tertiles")),
@@ -987,7 +988,7 @@ QUANTILE_NAMES = {
         20: (_t("ventile"), _t("ventiles")),
         100: (_t("centile"), _t("centiles")),
     },
-    "group": {
+    {
         0: (_t("{}-quartile"), _t("{}-quartiles")),
         1: (_t("whole"), _t("wholes")),
         2: (_t("half"), _t("halves")),
@@ -1002,7 +1003,7 @@ QUANTILE_NAMES = {
         20: (_t("ventile"), _t("ventiles")),
         100: (_t("centile"), _t("centiles")),
     },
-    "fraction": {
+    {
         0: (_t("{}-quartile"), _t("{}-quartiles")),
         1: (_t("whole"), _t("wholes")),
         2: (_t("half"), _t("halves")),
@@ -1019,15 +1020,21 @@ QUANTILE_NAMES = {
         20: (_t("twentieth"), _t("twentieths")),
         100: (_t("hundredth"), _t("hundredths")),
     },
-}
+)
+
+
+class QK(enum.IntEnum):
+    CUT = 0
+    GROUP = 1
+    FRACTION = 2
 
 
 @functools.cache
 def quantile_name(
-    quantile: int | Sized, /, *, kind: str = "group", plural: bool = True
+    quantile: int | Sized, /, *, kind: QK = QK.GROUP, plural: bool = True
 ) -> str:
     """Return the name for a quantile of given size."""
     size = int(quantile) if isinstance(quantile, SupportsInt) else len(quantile)
-    default = QUANTILE_NAMES[kind][0]
-    name = QUANTILE_NAMES[kind].get(size, default)
+    default = quantile_names[kind][0]
+    name = quantile_names[kind].get(size, default)
     return name[int(plural)].format(size)

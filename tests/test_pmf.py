@@ -685,6 +685,81 @@ class TestPMFStatistics:
         assert tuple(pop) == (1, 1, 1, 2, 2, 3)
 
 
+class TestPMFOutput:
+    def test_tabulate_empty(self) -> None:
+        pmf = PMF[Any]()
+        assert pmf.tabulate() == ()
+
+    def test_tabulate_default(self) -> None:
+        pmf = PMF((1, 2, 3))
+        assert pmf.tabulate() == (
+            "1  1/3",
+            "2  1/3",
+            "3  1/3",
+        )
+
+    def test_tabulate_separator(self) -> None:
+        pmf = PMF((1, 2))
+        assert pmf.tabulate(separator=" = ") == (
+            "1 = 1/2",
+            "2 = 1/2",
+        )
+
+    def test_tabulate_align_true(self) -> None:
+        pmf = PMF((10, 9))
+        assert pmf.tabulate(align=True) == (
+            "10  1/2",
+            " 9  1/2",
+        )
+
+    def test_tabulate_align_false(self) -> None:
+        pmf = PMF((10, 9))
+        assert pmf.tabulate(align=False) == (
+            "10: 1/2",
+            "9: 1/2",
+        )
+
+    def test_format_default(self) -> None:
+        pets = ("cat", "dog")
+        pmf = PMF(pets)
+        assert format(pmf) == "{cat: 1/2, dog: 1/2}"
+
+    def test_format_percent(self) -> None:
+        pets = ("cat", "dog")
+        pmf = PMF(pets)
+        assert format(pmf, ":.0%") == "{cat: 50%, dog: 50%}"
+
+    def test_format_hex(self) -> None:
+        pmf = PMF((9, 10))
+        assert format(pmf, "#0x:.2f") == "{0x9: 0.50, 0xa: 0.50}"
+
+    def test_repr_empty(self) -> None:
+        pmf = PMF[Any]()
+        assert repr(pmf) == "PMF()"
+
+    def test_repr_int(self) -> None:
+        pmf = PMF((1, 1, 2))
+        assert repr(pmf) == "PMF({1: 2, 2: 1})"
+
+    def test_repr_str(self) -> None:
+        pets = ("cat", "dog", "cat")
+        pmf = PMF(pets)
+        assert repr(pmf) == "PMF({'cat': 2, 'dog': 1})"
+
+    def test_repr_gcd(self) -> None:
+        pmf = PMF((1, 1, 1), normalize=False)
+        assert repr(pmf) == "PMF({1: 3}, normalize=False)"
+
+    def test_repr_subtype(self) -> None:
+        pmf = SubPMF[Any]()
+        assert repr(pmf) == "SubPMF()"
+
+    def test_str(self) -> None:
+        pets = ("cat", "dog")
+        pmf = PMF(pets)
+        assert str(pmf) == "{cat: 1/2, dog: 1/2}"
+
+
 class TestPMFUnaryOperator:
     ppos = (1, 2, 3)
     pneg = (-3, -2, -1)

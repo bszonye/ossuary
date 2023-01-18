@@ -6,15 +6,34 @@ import pytest
 
 import bones.roll
 from bones.pmf import PMF
-from bones.roll import d, d00, d000, d6, dF, Die
+from bones.roll import d, d00, d000, d3, d6, d20, dF, Die
 
 
 class TestDieInit:
-    def test_ints(self) -> None:
-        die = Die((1, 2, 3, 4, 5, 6))
+    def test_default(self) -> None:
+        die = Die()
         assert len(die) == 6
         assert die.total == 6
-        assert die.mapping == d(6).mapping
+        assert die.mapping == d6.mapping
+
+    def test_int(self) -> None:
+        die = Die(20)
+        assert len(die) == 20
+        assert die.total == 20
+        assert die.mapping == d20.mapping
+
+    def test_integers(self) -> None:
+        die = Die((1, 2, 3))
+        assert len(die) == 3
+        assert die.total == 3
+        assert die.mapping == d3.mapping
+
+    def test_strings(self) -> None:
+        pets = ("cat", "dog", "bird", "fish", "snake")
+        die = Die(("cat", "dog", "bird", "fish", "snake"))
+        assert len(die) == 5
+        assert die.total == 5
+        assert die.domain == pets
 
     def test_copy(self) -> None:
         # Copy another PMF (without normalization).
