@@ -804,7 +804,7 @@ class PMF(Sequence[ET_co]):
         """Compute other @ self."""
         if isinstance(other, typing.SupportsInt):
             return self.times(int(other))
-        return self.convert(other).__matmul__(self)
+        return NotImplemented
 
     def __add__(self, other: Any) -> Self:
         """Compute self + other."""

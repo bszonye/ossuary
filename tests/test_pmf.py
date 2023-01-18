@@ -942,41 +942,78 @@ class TestPMFBinaryOperator:
         for v, p in d3d3.graph:
             assert p == p1(v) / 3 + p2(v) / 3 + p3(v) / 3
 
+    def test_rmatmul_errors(self) -> None:
+        d3 = PMF((1, 2, 3))
+        with pytest.raises(TypeError):
+            "cat" @ d3
+        with pytest.raises(TypeError):
+            (1 + 0j) @ d3
+
     def test_add(self) -> None:
-        pass  # TODO
+        d3 = PMF((1, 2, 3))
+        assert (d3 + d3).mapping == {2: 1, 3: 2, 4: 3, 5: 2, 6: 1}
+        assert (d3 + 1).mapping == {2: 1, 3: 1, 4: 1}
+        assert (1 + d3).mapping == (d3 + 1).mapping
 
     def test_sub(self) -> None:
-        pass  # TODO
+        d3 = PMF((1, 2, 3))
+        assert (d3 - d3).mapping == {0: 3, -1: 2, -2: 1, 1: 2, 2: 1}
+        assert (d3 - 1).mapping == {0: 1, 1: 1, 2: 1}
+        assert (1 - d3).mapping == {0: 1, -1: 1, -2: 1}
 
     def test_mul(self) -> None:
-        pass  # TODO
+        d3 = PMF((1, 2, 3))
+        assert (d3 * d3).mapping == {1: 1, 2: 2, 3: 2, 4: 1, 6: 2, 9: 1}
+        assert (d3 * 2).mapping == {2: 1, 4: 1, 6: 1}
+        assert (2 * d3).mapping == (d3 * 2).mapping
 
     def test_truediv(self) -> None:
-        pass  # TODO
+        pmf = PMF((0.5, 1.0, 2.0))
+        assert (pmf / 2.0).mapping == {0.25: 1, 0.5: 1, 1.0: 1}
+        assert (2.0 / pmf).mapping == {4.0: 1, 2.0: 1, 1.0: 1}
 
     def test_floordiv(self) -> None:
-        pass  # TODO
+        pmf = PMF((6, 12, 24))
+        assert (pmf // 3).mapping == {2: 1, 4: 1, 8: 1}
+        assert (48 // pmf).mapping == {8: 1, 4: 1, 2: 1}
 
     def test_mod(self) -> None:
-        pass  # TODO
+        pmf = PMF((2, 3, 4))
+        assert (pmf % 3).mapping == {2: 1, 0: 1, 1: 1}
+        assert (3 % pmf).mapping == {1: 1, 0: 1, 3: 1}
 
     def test_pow(self) -> None:
-        pass  # TODO
+        pmf = PMF((2, 3, 4))
+        assert (pmf**2).mapping == {4: 1, 9: 1, 16: 1}
+        assert (2**pmf).mapping == {4: 1, 8: 1, 16: 1}
 
     def test_lshift(self) -> None:
-        pass  # TODO
+        pmf = PMF((2, 3, 4))
+        assert (pmf << 1).mapping == {4: 1, 6: 1, 8: 1}
+        assert (3 << pmf).mapping == {12: 1, 24: 1, 48: 1}
 
     def test_rshift(self) -> None:
-        pass  # TODO
+        pmf = PMF((2, 3, 4))
+        assert (pmf >> 1).mapping == {1: 2, 2: 1}
+        assert (27 >> pmf).mapping == {6: 1, 3: 1, 1: 1}
 
     def test_and(self) -> None:
-        pass  # TODO
+        d3 = PMF((1, 2, 3))
+        assert (d3 & d3).mapping == {1: 3, 0: 2, 2: 3, 3: 1}
+        assert (d3 & 1).mapping == {1: 2, 0: 1}
+        assert (1 & d3).mapping == (d3 & 1).mapping
 
     def test_xor(self) -> None:
-        pass  # TODO
+        d3 = PMF((1, 2, 3))
+        assert (d3 ^ d3).mapping == {0: 3, 3: 2, 2: 2, 1: 2}
+        assert (d3 ^ 1).mapping == {0: 1, 3: 1, 2: 1}
+        assert (1 ^ d3).mapping == (d3 ^ 1).mapping
 
     def test_or(self) -> None:
-        pass  # TODO
+        d3 = PMF((1, 2, 3))
+        assert (d3 | d3).mapping == {1: 1, 3: 7, 2: 1}
+        assert (d3 | 1).mapping == {1: 1, 3: 2}
+        assert (1 | d3).mapping == (d3 | 1).mapping
 
 
 class TestPMFSequence:
