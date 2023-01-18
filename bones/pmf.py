@@ -13,6 +13,8 @@ __all__ = [
 
 import enum
 import functools
+import importlib
+import importlib.util
 import itertools
 import math
 import numbers
@@ -495,6 +497,33 @@ class PMF(Collection[ET_co]):
     # ==================================================================
     # TABULATON AND OUTPUT
 
+    def format_pairs(
+        self,
+        spec: str = "",
+        /,
+        *,
+        scale: _Real = 1,
+    ) -> Iterator[tuple[str, str]]:
+        """Format PMF as a table."""
+        # Validate & initialize parameters.
+        if not len(self):
+            return iter(tuple())
+        specs = spec.split(":", 1)
+        dspec: str = specs[0]
+        ispec: str = specs[-1]  # Same as vspec if there's no colon.
+
+        image: Iterator[_Real]
+        if not ispec:
+            image = (scale * p for p in self.image)
+        elif ispec[-1] in "Xbcdnox":
+            image = (scale * wt for wt in self.weights)
+        else:
+            image = (float(scale * p) for p in self.image)
+
+        fdomain = (format(ev, dspec) for ev in self.domain)
+        fimage = (format(p, ispec) for p in image)
+        return zip(fdomain, fimage, strict=True)
+
     def plot_colors(
         self,
         *,
@@ -507,16 +536,24 @@ class PMF(Collection[ET_co]):
         self,
         *,
         q: None | int | Auto = Ellipsis,
-        vformat: str = "",
-        precision: int = 2,
+        xformat: str = "",
+        yformat: str = ".2f",
+        scale: _Real = 100,
         window_title: str = "bones",
+        block: bool = True,
+        console: bool = False,
+        plotlib: str = "matplotlib",  # variable for testability
     ) -> None:
         """Display the PMF with matplotlib."""
-        try:
-            from matplotlib import pyplot as plt
-            from matplotlib.patches import Patch
-        except ImportError:  # pragma: no cover
+        fspec = ":".join((xformat, yformat))
+        if importlib.util.find_spec(plotlib) is None:
+            console = True
+        if console:
+            print("\n".join(self.tabulate(fspec, scale=scale)))
             return
+
+        plt = importlib.import_module(".pyplot", package=plotlib)
+        patches = importlib.import_module(".patches", package=plotlib)
 
         fig, ax = plt.subplots()
         fig.canvas.manager.set_window_title(window_title)
@@ -527,9 +564,7 @@ class PMF(Collection[ET_co]):
         image = tuple(float(self(v)) for v in domain)
         n = len(domain)
 
-        precision = max(0, precision)
-        vlabels = tuple(format(v, vformat) for v in domain)
-        plabels = tuple(f"{100*p:.{precision}f}" for p in image)
+        xlabels, ylabels = zip(*self.format_pairs(fspec, scale=scale), strict=True)
         legend: list[str] = []
 
         # Group events into quantiles.
@@ -552,7 +587,7 @@ class PMF(Collection[ET_co]):
                 width = len(str(nq))
                 fill = "\u2007"  # U+2007 FIGURE SPACE, &numsp;
                 label = f"{1+i:{fill}>{width}d}/{nq}"
-                legend.append(Patch(color=qcolor, label=label))
+                legend.append(patches.Patch(color=qcolor, label=label))
         else:
             # Color probabilities from violet to red.
             color = tuple(
@@ -563,14 +598,14 @@ class PMF(Collection[ET_co]):
         chart = ax.bar(
             x=range(n),
             height=image,
-            tick_label=vlabels,
+            tick_label=xlabels,
             color=color,
             edgecolor=edge,
             # hatch="/",
         )
         ax.set_xlabel("Events")  # TODO: customizable title
         ax.set_ylabel("Probability")
-        ax.bar_label(chart, labels=plabels, padding=1, fontsize="x-small")
+        ax.bar_label(chart, labels=ylabels, padding=1, fontsize="x-small")
         if legend:
             ax.legend(
                 title=quantile_name(len(quantiles)),
@@ -580,60 +615,36 @@ class PMF(Collection[ET_co]):
             )
 
         with plt.rc_context({"hatch.linewidth": 8.5}):
-            plt.show()
+            plt.show(block=block)
 
     def tabulate(
         self,
-        __spec: str = "",
+        spec: str = "",
         /,
         *,
+        scale: _Real = 1,  # TODO: switch to pair_format
         align: bool = True,
         separator: str | None = None,
-    ) -> Sequence[str]:
+    ) -> Iterator[str]:
         """Format PMF as a table."""
         # Validate & initialize parameters.
         if not self:
-            return tuple()
+            return iter(tuple())
         if separator is None:
             separator = "  " if align else ": "
-        specs = __spec.split(":", 1)
-        vspec: str = specs[0]
-        wspec: str = specs[-1]  # Same as vspec if there's no colon.
 
-        # Format columns.
-        def column(item: Any, spec: str, width: int = 0, frac: int = 0) -> str:
-            """Format an object to spec, with extra width controls."""
-            # Fractions don't support format specifiers.
-            if spec and isinstance(item, Fraction):
-                item = float(item)
-
-            # Simple alignment: numbers right, everything else left.
-            # To override, use a format specifier with explicit column
-            # widths and alignment/fill options.
-            text = format(item, spec)
-            return (
-                text.rjust(width)
-                if isinstance(item, numbers.Number)
-                else text.ljust(width)
-            )
-
-        def measure(items: Iterable[Any], spec: str) -> int:
-            return max(len(column(item, spec)) for item in items) if align else 0
-
-        # Select probability or weight depending on format.  Use integer
-        # weights for int formats, fractional probabilities otherwise.
-        pfunc = self.weight if wspec and wspec[-1] in "Xbcdnox" else self.probability
-        events = self.domain
-        # Determine the minimum column & fraction widths.
-        vwidth = measure(events, vspec)
-        wwidth = measure(map(pfunc, events), wspec)
-        # Generate text.
-        return tuple(
-            separator.join(
-                (column(event, vspec, vwidth), column(pfunc(event), wspec, wwidth))
-            )
-            for event in events
+        xcol, ycol = zip(*self.format_pairs(spec, scale=scale), strict=True)
+        xwidth = max(len(s) for s in xcol) if align else 0
+        ywidth = max(len(s) for s in ycol) if align else 0
+        # Align numbers right, everything else left.
+        xjust = (
+            x.rjust(xwidth)
+            if isinstance(self.domain[i], numbers.Number)
+            else x.ljust(xwidth)
+            for i, x in enumerate(xcol)
         )
+        yjust = (y.rjust(ywidth) for y in ycol)
+        return (separator.join(pair) for pair in zip(xjust, yjust, strict=True))
 
     def __format__(self, spec: str) -> str:
         """Format the PMF according to the format spec."""

@@ -36,5 +36,5 @@ class TestEvalDemo:
     def test_pmf(self, capsys: Cap) -> None:
         main.eval_demo(["d2"], interactive=False)
         cap = capsys.readouterr()
-        assert cap.out == "1  50.00%\n2  50.00%\n"
+        assert cap.out == "1  50.00\n2  50.00\n"
         assert cap.err == ""

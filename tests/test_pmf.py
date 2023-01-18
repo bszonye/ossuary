@@ -740,13 +740,43 @@ class TestPMFStatistics:
 
 
 class TestPMFOutput:
+    def test_format_pairs_empty(self) -> None:
+        pmf = PMF[Any]()
+        pairs = pmf.format_pairs()
+        assert isinstance(pairs, Iterator)
+        assert tuple(pairs) == ()
+
+    def test_format_pairs_hex(self) -> None:
+        pmf = PMF((1, 1, 1, 2, 2, 3))
+        pairs = pmf.format_pairs("#x")
+        assert isinstance(pairs, Iterator)
+        assert tuple(pairs) == (
+            ("0x1", "0x3"),
+            ("0x2", "0x2"),
+            ("0x3", "0x1"),
+        )
+
+    def test_format_pairs_scale(self) -> None:
+        pmf = PMF((1, 1, 1, 2, 2, 3))
+        pairs = pmf.format_pairs(".2f", scale=100)
+        assert isinstance(pairs, Iterator)
+        assert tuple(pairs) == (
+            ("1.00", "50.00"),
+            ("2.00", "33.33"),
+            ("3.00", "16.67"),
+        )
+
     def test_tabulate_empty(self) -> None:
         pmf = PMF[Any]()
-        assert pmf.tabulate() == ()
+        tab = pmf.tabulate()
+        assert isinstance(tab, Iterator)
+        assert tuple(tab) == ()
 
     def test_tabulate_default(self) -> None:
         pmf = PMF((1, 2, 3))
-        assert pmf.tabulate() == (
+        tab = pmf.tabulate()
+        assert isinstance(tab, Iterator)
+        assert tuple(tab) == (
             "1  1/3",
             "2  1/3",
             "3  1/3",
@@ -754,23 +784,41 @@ class TestPMFOutput:
 
     def test_tabulate_separator(self) -> None:
         pmf = PMF((1, 2))
-        assert pmf.tabulate(separator=" = ") == (
+        tab = pmf.tabulate(separator=" = ")
+        assert isinstance(tab, Iterator)
+        assert tuple(tab) == (
             "1 = 1/2",
             "2 = 1/2",
         )
 
     def test_tabulate_align_true(self) -> None:
         pmf = PMF((10, 9))
-        assert pmf.tabulate(align=True) == (
+        tab = pmf.tabulate(align=True)
+        assert isinstance(tab, Iterator)
+        assert tuple(tab) == (
             "10  1/2",
             " 9  1/2",
         )
 
     def test_tabulate_align_false(self) -> None:
         pmf = PMF((10, 9))
-        assert pmf.tabulate(align=False) == (
+        tab = pmf.tabulate(align=False)
+        assert isinstance(tab, Iterator)
+        assert tuple(tab) == (
             "10: 1/2",
             "9: 1/2",
+        )
+
+    def test_tabulate_text(self) -> None:
+        pmf = PMF(("cat", "dog", "snake", "goat", "llama"))
+        tab = pmf.tabulate()
+        assert isinstance(tab, Iterator)
+        assert tuple(tab) == (
+            "cat    1/5",
+            "dog    1/5",
+            "snake  1/5",
+            "goat   1/5",
+            "llama  1/5",
         )
 
     def test_format_default(self) -> None:

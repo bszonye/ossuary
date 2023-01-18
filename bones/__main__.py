@@ -39,10 +39,7 @@ def eval_demo(
     for expression in expressions:
         v = eval(expression, g)
         if isinstance(v, PMF):
-            if interactive:  # pragma: no cover
-                v.plot()
-            else:
-                print("\n".join(v.tabulate(":.2%")))
+            v.plot(console=not interactive)
         elif v is not None:
             print(v)
 
