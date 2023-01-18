@@ -337,6 +337,30 @@ class PMF(Sequence[ET_co]):
         """Create a copy with all weights reduced to lowest terms."""
         return self if self.is_normal() else self.copy(normalize=True)
 
+    def is_ranked(
+        self,
+        *,
+        reverse: bool = False,
+    ) -> bool:
+        """Return true if the PMF domain is in frequency rank order."""
+        if len(self) < 2:
+            return True
+
+        # Build a sequence in the right direction with key applied.
+        weights: Iterable[Any]  # assume event or key type is sortable
+        weights = reversed(self.weights) if reverse else self.weights
+        return all(a <= b for a, b in itertools.pairwise(weights))
+
+    def ranked(
+        self,
+        *,
+        reverse: bool = False,
+        normalize: bool = False,
+    ) -> Self:
+        """Create a copy ordered by frequency rank."""
+        pairs = sorted(self.pairs, key=(lambda pair: pair[1]), reverse=reverse)
+        return self.from_pairs(pairs, normalize=normalize)
+
     def is_sorted(
         self,
         *,

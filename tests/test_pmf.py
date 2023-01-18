@@ -566,6 +566,57 @@ class TestPMFCopy:
         else:
             assert len(normalized.support) == 0
 
+    def test_ranked_normalize_false(self) -> None:
+        pairs = [("a", 8), ("lazy", 6), ("black", 2), ("cat", 4)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        pmf = PMF(dict(counter), normalize=False)
+        assert not pmf.is_ranked()
+
+        sort = pmf.ranked(normalize=False)  # exact
+        assert sort.domain == ("black", "cat", "lazy", "a")
+        assert sort.is_ranked()
+        assert not sort.is_normal()
+        # general checks
+        assert len(sort) == len(counter)
+        assert sort.mapping == dict(counter)
+        assert sort.total == counter.total()
+
+    def test_ranked_normalize_true(self) -> None:
+        pairs = [("a", 8), ("lazy", 6), ("black", 2), ("cat", 4)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        pmf = PMF(dict(counter), normalize=False)
+        assert not pmf.is_ranked()
+
+        sort = pmf.ranked(normalize=True)  # exact
+        assert sort.domain == ("black", "cat", "lazy", "a")
+        assert sort.is_ranked()
+        assert sort.is_normal()
+        # general checks
+        assert len(sort) == len(norm)
+        assert sort.mapping == dict(norm)
+        assert sort.total == norm.total()
+
+    def test_ranked_reverse(self) -> None:
+        pairs = [("a", 8), ("lazy", 6), ("black", 2), ("cat", 4)]
+        counter, norm = expected(pairs)
+        assert counter != norm
+
+        pmf = PMF(dict(counter), normalize=False)
+        assert not pmf.is_ranked(reverse=True)
+
+        sort = pmf.ranked(reverse=True)  # exact
+        assert sort.domain == ("a", "lazy", "cat", "black")
+        assert sort.is_ranked(reverse=True)
+        assert not sort.is_normal()
+        # general checks
+        assert len(sort) == len(counter)
+        assert sort.mapping == dict(counter)
+        assert sort.total == counter.total()
+
     def test_sorted_normalize_false(self) -> None:
         pairs = [("a", 2), ("lazy", 4), ("black", 6), ("cat", 8)]
         counter, norm = expected(pairs)
@@ -622,7 +673,7 @@ class TestPMFCopy:
         assert counter == norm
 
         pmf = PMF(dict(counter))
-        assert not pmf.is_sorted(key=len)
+        assert not pmf.is_sorted(reverse=True)
 
         sort = pmf.sorted(reverse=True)
         assert sort.domain == ("lazy", "cat", "black", "a")
@@ -649,6 +700,8 @@ class TestPMFCopy:
         assert sort.total == norm.total()
 
     def test_short_sorts(self) -> None:
+        assert PMF().is_ranked()
+        assert PMF((1,)).is_ranked()
         assert PMF().is_sorted()
         assert PMF((1,)).is_sorted()
 
