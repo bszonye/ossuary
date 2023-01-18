@@ -22,6 +22,13 @@ class TestDieInit:
         assert die.total == 20
         assert die.mapping == d20.mapping
 
+    def test_int_reverse(self) -> None:
+        die = Die(6, reverse=True)
+        assert len(die) == 6
+        assert die.total == 6
+        assert die.mapping == d6.mapping
+        assert die.domain == (6, 5, 4, 3, 2, 1)
+
     def test_integers(self) -> None:
         die = Die((1, 2, 3))
         assert len(die) == 3
@@ -40,6 +47,13 @@ class TestDieInit:
         die = Die(d6)
         assert die.mapping is d6.mapping
         assert die.total is d6.total
+
+
+class TestDieOutput:
+    def test_repr(self) -> None:
+        assert repr(Die(())) == "Die(())"
+        assert repr(Die()) == "Die((1, 2, 3, 4, 5, 6))"
+        assert repr(Die(3, reverse=True)) == "Die((3, 2, 1))"
 
 
 class TestDieObjects:
