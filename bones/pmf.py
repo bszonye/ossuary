@@ -524,14 +524,6 @@ class PMF(Collection[ET_co]):
         fimage = (format(p, ispec) for p in image)
         return zip(fdomain, fimage, strict=True)
 
-    def plot_colors(
-        self,
-        *,
-        q: None | int | Auto = Ellipsis,
-    ) -> Iterable[ColorTriplet]:
-        """Determine plot colors for all event probabilities."""
-        return ()  # TODO
-
     def plot(
         self,
         *,
