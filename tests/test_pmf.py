@@ -4,6 +4,7 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 import itertools
 import math
+import operator
 from collections import Counter
 from collections.abc import Iterable, Iterator, Sequence
 from fractions import Fraction
@@ -12,7 +13,7 @@ from typing import Any, TypeAlias, TypeVar
 import pytest
 from pytest import approx  # pyright: ignore[reportUnknownVariableType]
 
-from bones.pmf import PMF, Weight
+from bones.pmf import multiset_comb, multiset_perm, PMF, QK, quantile_name, Weight
 
 ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
 _T = TypeVar("_T")
@@ -813,6 +814,66 @@ class TestPMFOutput:
         assert str(pmf) == "{cat: 1/2, dog: 1/2}"
 
 
+class TestPMFCombinatorics:
+    def test_combinations_empty(self) -> None:
+        pmf = PMF[Any]()
+        assert pmf.combinations(1) == ()
+
+    def test_combinations(self) -> None:
+        d3 = PMF((1, 2, 3))
+        assert d3.combinations(0) == ((),)
+        assert d3.combinations(1) == ((1,), (2,), (3,))
+        assert d3.combinations(2) == ((1, 1), (1, 2), (1, 3), (2, 2), (2, 3), (3, 3))
+
+    def test_combinations_error(self) -> None:
+        d3 = PMF((1, 2, 3))
+        with pytest.raises(ValueError):
+            d3.combinations(-1)
+
+    def test_combination_weights(self) -> None:
+        d3 = PMF((1, 2, 3))
+        assert d3.combination_weights(0) == {(): 0}
+        assert d3.combination_weights(1) == {(1,): 1, (2,): 1, (3,): 1}
+        assert d3.combination_weights(2) == {
+            (1, 1): 1,
+            (1, 2): 2,
+            (1, 3): 2,
+            (2, 2): 1,
+            (2, 3): 2,
+            (3, 3): 1,
+        }
+
+
+class TestPMFHigherOrder:
+    def test_map_string(self) -> None:
+        pets = ("cat", "dog", "bird", "fish", "snake")
+        pmf = PMF(pets)
+        caps = pmf.map(str.upper)
+        assert caps.domain == ("CAT", "DOG", "BIRD", "FISH", "SNAKE")
+        assert caps.weights == pmf.weights
+
+    def test_times(self) -> None:
+        pmf = PMF((1, 2, 3))
+        assert pmf.times(1) == pmf
+        assert pmf.times(2).mapping == (pmf + pmf).mapping
+        assert pmf.times(3, operator.sub).mapping == (pmf - pmf - pmf).mapping
+        assert pmf.times(3, operator.sub).mapping != (pmf - (pmf - pmf)).mapping
+
+    def test_rtimes(self) -> None:
+        pmf = PMF((1, 2, 3))
+        assert pmf.rtimes(1) == pmf
+        assert pmf.rtimes(2).mapping == (pmf + pmf).mapping
+        assert pmf.rtimes(3, operator.sub).mapping == (pmf - (pmf - pmf)).mapping
+        assert pmf.rtimes(3, operator.sub).mapping != (pmf - pmf - pmf).mapping
+
+    def test_times_error(self) -> None:
+        pmf = PMF((1, 2, 3))
+        with pytest.raises(ValueError):
+            pmf.times(0)
+        with pytest.raises(ValueError):
+            pmf.rtimes(0)
+
+
 class TestPMFUnaryOperator:
     ppos = (1, 2, 3)
     pneg = (-3, -2, -1)
@@ -945,9 +1006,9 @@ class TestPMFBinaryOperator:
     def test_rmatmul_errors(self) -> None:
         d3 = PMF((1, 2, 3))
         with pytest.raises(TypeError):
-            "cat" @ d3
+            _ = "cat" @ d3
         with pytest.raises(TypeError):
-            (1 + 0j) @ d3
+            _ = (1 + 0j) @ d3
 
     def test_add(self) -> None:
         d3 = PMF((1, 2, 3))
@@ -1018,22 +1079,57 @@ class TestPMFBinaryOperator:
 
 class TestPMFSequence:
     def test_contains(self) -> None:
-        pass  # TODO
+        pmf = PMF((1, 2, 3))
+        assert 1 in pmf
+        assert 2 in pmf
+        assert 3 in pmf
+        assert 0 not in pmf
+        assert "cat" not in pmf  # type: ignore
+        assert None not in pmf
 
     def test_iter(self) -> None:
-        pass  # TODO
+        pmf = PMF((1, 2, 3))
+        items = iter(pmf)
+        assert next(items, None) == 1
+        assert next(items, None) == 2
+        assert next(items, None) == 3
+        assert next(items, None) is None
 
     def test_reversed(self) -> None:
-        pass  # TODO
+        pmf = PMF((1, 2, 3))
+        items = reversed(pmf)
+        assert next(items, None) == 3
+        assert next(items, None) == 2
+        assert next(items, None) == 1
+        assert next(items, None) is None
 
     def test_getitem_event(self) -> None:
-        pass  # TODO
+        pmf = PMF((1, 2, 3))
+        assert pmf[0] == 1
+        assert pmf[1] == 2
+        assert pmf[2] == 3
+        assert pmf[-1] == 3
+        assert pmf[-2] == 2
+        assert pmf[-3] == 1
+        with pytest.raises(IndexError):
+            pmf[4]
 
     def test_getitem_slice(self) -> None:
-        pass  # TODO
+        pmf = PMF((1, 2, 3))
+        assert pmf[1:] == (2, 3)
+        assert pmf[2:] == (3,)
+        assert pmf[3:] == ()
+        assert pmf[4:] == ()
+        assert pmf[:-1] == (1, 2)
+        assert pmf[:-2] == (1,)
+        assert pmf[:-3] == ()
+        assert pmf[:-4] == ()
 
     def test_len(self) -> None:
-        pass  # TODO
+        pmf = PMF((1, 2, 3))
+        assert len(pmf) == 3
+        pmf = PMF()
+        assert len(pmf) == 0
 
     def test_index(self) -> None:
         pets = ("cat", "dog", "bird", "fish", "snake")
@@ -1071,7 +1167,59 @@ class TestPMFSequence:
             PMF(range(1, 7)).index(7)
 
     def test_count(self) -> None:
-        pass  # TODO
+        pmf = PMF((1, 1, 1, 2, 2, 3))
+        assert pmf.count(1) == 3
+        assert pmf.count(2) == 2
+        assert pmf.count(3) == 1
+        assert pmf.count(4) == 0
 
     def test_hash(self) -> None:
-        pass  # TODO
+        pmf = PMF((1, 1, 1, 2, 2, 3))
+        assert hash(pmf) == hash(pmf.pairs)
+
+
+class TestMultisetMath:
+    def test_multiset_comb(self) -> None:
+        assert multiset_comb(3, 5) == math.comb(7, 5)
+        assert multiset_comb(6, 6) == math.comb(11, 6)
+
+    def test_multiset_perm(self) -> None:
+        items = (3, 3, 5, 6, 9)
+        perm = math.factorial(sum(items))
+        for item in items:
+            perm //= math.factorial(item)
+        assert multiset_perm(items) == perm
+
+
+class TestQuantileName:
+    def test_quantile_name(self) -> None:
+        assert quantile_name(0) == "0-quantiles"
+        assert quantile_name(2) == "halves"
+        assert quantile_name(4) == "quartiles"
+        assert quantile_name(5) == "quintiles"
+        assert quantile_name(10) == "deciles"
+        assert quantile_name(100) == "centiles"
+
+    def test_quantile_name_singular(self) -> None:
+        assert quantile_name(0, plural=False) == "0-quantile"
+        assert quantile_name(2, plural=False) == "half"
+        assert quantile_name(4, plural=False) == "quartile"
+        assert quantile_name(5, plural=False) == "quintile"
+        assert quantile_name(10, plural=False) == "decile"
+        assert quantile_name(100, plural=False) == "centile"
+
+    def test_quantile_name_cut(self) -> None:
+        assert quantile_name(0, kind=QK.CUT, plural=False) == "0-quantile"
+        assert quantile_name(2, kind=QK.CUT, plural=False) == "median"
+        assert quantile_name(4, kind=QK.CUT, plural=False) == "quartile"
+        assert quantile_name(5, kind=QK.CUT, plural=False) == "quintile"
+        assert quantile_name(10, kind=QK.CUT, plural=False) == "decile"
+        assert quantile_name(100, kind=QK.CUT, plural=False) == "centile"
+
+    def test_quantile_name_fraction(self) -> None:
+        assert quantile_name(0, kind=QK.FRACTION) == "0-quantiles"
+        assert quantile_name(2, kind=QK.FRACTION) == "halves"
+        assert quantile_name(4, kind=QK.FRACTION) == "quarters"
+        assert quantile_name(5, kind=QK.FRACTION) == "fifths"
+        assert quantile_name(10, kind=QK.FRACTION) == "tenths"
+        assert quantile_name(100, kind=QK.FRACTION) == "hundredths"

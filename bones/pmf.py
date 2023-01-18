@@ -32,17 +32,7 @@ from collections.abc import (
 from fractions import Fraction
 from gettext import gettext as _t
 from types import MappingProxyType
-from typing import (
-    Any,
-    cast,
-    overload,
-    Self,
-    Sized,
-    SupportsIndex,
-    SupportsInt,
-    TypeAlias,
-    TypeVar,
-)
+from typing import Any, cast, overload, Self, SupportsIndex, TypeAlias, TypeVar
 
 from .color import adjust_lightness, ColorTriplet, interpolate_color
 
@@ -999,7 +989,7 @@ def multiset_perm(items: Iterable[int], /) -> int:
 
 quantile_names = (
     {
-        0: (_t("{}-quartile"), _t("{}-quartiles")),
+        0: (_t("{}-quantile"), _t("{}-quantiles")),
         2: (_t("median"), _t("medians")),
         3: (_t("tertile"), _t("tertiles")),
         4: (_t("quartile"), _t("quartiles")),
@@ -1013,7 +1003,7 @@ quantile_names = (
         100: (_t("centile"), _t("centiles")),
     },
     {
-        0: (_t("{}-quartile"), _t("{}-quartiles")),
+        0: (_t("{}-quantile"), _t("{}-quantiles")),
         1: (_t("whole"), _t("wholes")),
         2: (_t("half"), _t("halves")),
         3: (_t("tertile"), _t("tertiles")),
@@ -1028,7 +1018,7 @@ quantile_names = (
         100: (_t("centile"), _t("centiles")),
     },
     {
-        0: (_t("{}-quartile"), _t("{}-quartiles")),
+        0: (_t("{}-quantile"), _t("{}-quantiles")),
         1: (_t("whole"), _t("wholes")),
         2: (_t("half"), _t("halves")),
         3: (_t("third"), _t("thirds")),
@@ -1054,11 +1044,8 @@ class QK(enum.IntEnum):
 
 
 @functools.cache
-def quantile_name(
-    quantile: int | Sized, /, *, kind: QK = QK.GROUP, plural: bool = True
-) -> str:
+def quantile_name(size: int, /, *, kind: QK = QK.GROUP, plural: bool = True) -> str:
     """Return the name for a quantile of given size."""
-    size = int(quantile) if isinstance(quantile, SupportsInt) else len(quantile)
     default = quantile_names[kind][0]
     name = quantile_names[kind].get(size, default)
     return name[int(plural)].format(size)
