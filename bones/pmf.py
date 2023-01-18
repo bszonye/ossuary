@@ -534,19 +534,24 @@ class PMF(Collection[ET_co]):
         window_title: str = "bones",
         block: bool = True,
         console: bool = False,
-        plotlib: str = "matplotlib",  # variable for testability
+        plotlib: str = "matplotlib",
     ) -> None:
         """Display the PMF with matplotlib."""
+        # Common console/plotlib variables.
         fspec = ":".join((xformat, yformat))
+
+        # Fall back to console if plotlib is unavailable or overridden.
         if importlib.util.find_spec(plotlib) is None:
             console = True
         if console:
             print("\n".join(self.tabulate(fspec, scale=scale)))
             return
 
+        # Dynamically import plotlib (for testability).
         plt = importlib.import_module(".pyplot", package=plotlib)
         patches = importlib.import_module(".patches", package=plotlib)
 
+        # Set up plot.
         fig, ax = plt.subplots()
         fig.canvas.manager.set_window_title(window_title)
 
@@ -606,6 +611,7 @@ class PMF(Collection[ET_co]):
                 fontsize="x-small",
             )
 
+        # Show plot.
         with plt.rc_context({"hatch.linewidth": 8.5}):
             plt.show(block=block)
 
