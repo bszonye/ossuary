@@ -1077,7 +1077,7 @@ class TestPMFBinaryOperator:
         assert (1 | d3).mapping == (d3 | 1).mapping
 
 
-class TestPMFSequence:
+class TestPMFCollection:
     def test_contains(self) -> None:
         pmf = PMF((1, 2, 3))
         assert 1 in pmf
@@ -1102,28 +1102,6 @@ class TestPMFSequence:
         assert next(items, None) == 2
         assert next(items, None) == 1
         assert next(items, None) is None
-
-    def test_getitem_event(self) -> None:
-        pmf = PMF((1, 2, 3))
-        assert pmf[0] == 1
-        assert pmf[1] == 2
-        assert pmf[2] == 3
-        assert pmf[-1] == 3
-        assert pmf[-2] == 2
-        assert pmf[-3] == 1
-        with pytest.raises(IndexError):
-            pmf[4]
-
-    def test_getitem_slice(self) -> None:
-        pmf = PMF((1, 2, 3))
-        assert pmf[1:] == (2, 3)
-        assert pmf[2:] == (3,)
-        assert pmf[3:] == ()
-        assert pmf[4:] == ()
-        assert pmf[:-1] == (1, 2)
-        assert pmf[:-2] == (1,)
-        assert pmf[:-3] == ()
-        assert pmf[:-4] == ()
 
     def test_len(self) -> None:
         pmf = PMF((1, 2, 3))
@@ -1165,13 +1143,6 @@ class TestPMFSequence:
         with pytest.raises(ValueError):
             PMF(range(1, 7)).index(0)
             PMF(range(1, 7)).index(7)
-
-    def test_count(self) -> None:
-        pmf = PMF((1, 1, 1, 2, 2, 3))
-        assert pmf.count(1) == 3
-        assert pmf.count(2) == 2
-        assert pmf.count(3) == 1
-        assert pmf.count(4) == 0
 
     def test_hash(self) -> None:
         pmf = PMF((1, 1, 1, 2, 2, 3))

@@ -22,6 +22,7 @@ import typing
 from collections import Counter
 from collections.abc import (
     Callable,
+    Collection,
     Hashable,
     ItemsView,
     Iterable,
@@ -32,7 +33,7 @@ from collections.abc import (
 from fractions import Fraction
 from gettext import gettext as _t
 from types import MappingProxyType
-from typing import Any, cast, overload, Self, SupportsIndex, TypeAlias, TypeVar
+from typing import Any, cast, Self, TypeAlias, TypeVar
 
 from .color import adjust_lightness, ColorTriplet, interpolate_color
 
@@ -52,7 +53,7 @@ _Rational: TypeAlias = numbers.Rational | int
 _Real: TypeAlias = numbers.Real | float | int
 
 
-class PMF(Sequence[ET_co]):
+class PMF(Collection[ET_co]):
     """Generic base class for probability mass functions.
 
     A probability mass function (PMF) associates probabilities with
@@ -905,7 +906,7 @@ class PMF(Sequence[ET_co]):
         return self.convert(other).binary_operator(self, operator.or_)
 
     # ==================================================================
-    # SEQUENCE METHODS
+    # COLLECTION METHODS
 
     def __contains__(self, event: Any) -> bool:
         """Test object for membership in the event domain."""
@@ -919,32 +920,16 @@ class PMF(Sequence[ET_co]):
         """Iterate over the event domain in reverse."""
         return reversed(self.domain)
 
-    @overload
-    def __getitem__(self, i: SupportsIndex) -> ET_co:  # noqa: D105
-        ...
-
-    @overload
-    def __getitem__(self, i: slice) -> tuple[ET_co, ...]:  # noqa: D105
-        ...
-
-    def __getitem__(self, i: SupportsIndex | slice) -> ET_co | tuple[ET_co, ...]:
-        """Get the indexed item or slice from the event domain."""
-        return self.domain[i]
-
     def __len__(self) -> int:
         """Return the number of discrete values in the mapping."""
         return len(self.mapping)
 
-    def index(self, event: Any, /) -> int:  # type: ignore[override]
-        """Return the event's position in the domain."""
+    def index(self, event: Any, /) -> int:
+        """Return the domain index of a given event."""
         try:
             return self.__index[event]
         except KeyError:
             raise ValueError(f"{event!r} not in {type(self).__name__}") from None
-
-    def count(self, event: Any, /) -> int:  # pyright: ignore
-        """Return the event's probability weight as its count."""
-        return self.weight(event)
 
     @functools.cached_property
     def _hash(self) -> int:
