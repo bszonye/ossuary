@@ -37,7 +37,7 @@ from gettext import gettext as _t
 from types import MappingProxyType
 from typing import Any, cast, Self, TypeAlias, TypeVar
 
-from .color import adjust_lightness, ColorTriplet, interpolate_color
+from .color import adjust_lightness, color_array, ColorTriplet, interpolate_color
 
 # Type variables.
 ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
@@ -561,7 +561,7 @@ class PMF(Collection[ET_co]):
             print("\n".join(self.tabulate(fspec, scale=scale)))
             return
 
-        # Dynamically import plotlib (for testability).
+        # Dynamically import plotlib for modularity & testability.
         plt = importlib.import_module(".pyplot", package=plotlib)
         patches = importlib.import_module(".patches", package=plotlib)
 
@@ -569,41 +569,30 @@ class PMF(Collection[ET_co]):
         fig, ax = plt.subplots()
         fig.canvas.manager.set_window_title(window_title)
 
-        # To temporarily change plot style, use this context manager.
-        # with plt.rc_context({"axes.labelsize": 20}):
         domain = self.domain
         image = tuple(float(self(v)) for v in domain)
         n = len(domain)
 
         xlabels, ylabels = zip(*self.format_pairs(fspec, scale=scale), strict=True)
-        legend: list[str] = []
+        legend: list[Any] = []
 
         # Group events into quantiles.
-        nq = q if isinstance(q, int) else self.auto_quantile
+        nq = 0 if q is None else q if isinstance(q, int) else self.auto_quantile
         color1: list[ColorTriplet] = []  # stripe 1 color
         color2: list[ColorTriplet] = []  # stripe 2 color
         hatch: list[str] = []
-        hatch_width = 1.0
+        hatch_style = "/"
+        hatch_width = 6.0 * math.sqrt(2)
         if 2 <= nq:
             # Set up quantile colors.
-            qmax = nq - 1
-            hues = min(max(180, 30 * qmax), 285)
-            icolor = functools.partial(
-                interpolate_color,
-                tmax=qmax,
-                hmin=(0 - hues / 2) / 360,
-                hmax=(0 + hues / 2) / 360,
-                lmin=0.15,
-                lmax=0.25,
-            )
-            hatch_width = 6.0 * math.sqrt(2)
-            quantiles = self.quantile_groups(q or 0)
+            qcolor = color_array(nq)
             for i in range(nq):
                 # Label quantiles from 1/N to N/N.
                 width = len(str(nq))
                 fill = "\u2007"  # U+2007 FIGURE SPACE, &numsp;
                 label = f"{1+i:{fill}>{width}d}/{nq}"
-                legend.append(patches.Patch(color=icolor(i), label=label))
+                legend.append(patches.Patch(color=qcolor[i], label=label))
+            quantiles = self.quantile_groups(q or 0)
             for i in range(n):
                 # Zero-weight events are black.
                 if not self.weights[i]:
@@ -612,9 +601,9 @@ class PMF(Collection[ET_co]):
                     continue
                 # Color events from blue to red to green.
                 groups = [j for j in range(nq) if domain[i] in quantiles[j]]
-                hatch.append("" if len(groups) == 1 else "/")
-                color1.append(icolor(groups[0]))
-                color2.append(icolor(groups[-1]))
+                hatch.append("" if len(groups) == 1 else hatch_style)
+                color1.append(qcolor[groups[0]])
+                color2.append(qcolor[groups[-1]])
         else:
             # Color probabilities from violet to red.
             color1 = [

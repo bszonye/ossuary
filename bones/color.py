@@ -5,6 +5,7 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 __all__ = [
     "adjust_lightness",
     "clip",
+    "color_array",
     "ColorTriplet",
     "darken",
     "interpolate_color",
@@ -125,3 +126,20 @@ def interpolate_color(
     lstar = (yellow - lstar) * ymix + lstar
     # Return the color with adjusted lightness.
     return clip(set_lightness(lstar, (r, g, b)))
+
+
+def color_array(n: int, /, hue: float = 0.0) -> tuple[ColorTriplet, ...]:
+    """Create an array of spectral colors centered around a hue."""
+    nmax = n - 1
+    hrange = min(max(180, 30 * nmax), 285)
+    return tuple(
+        interpolate_color(
+            i,
+            tmax=nmax,
+            hmin=hue - hrange / 720,
+            hmax=hue + hrange / 720,
+            lmin=0.15,
+            lmax=0.25,
+        )
+        for i in range(n)
+    )

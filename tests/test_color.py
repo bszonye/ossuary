@@ -9,6 +9,7 @@ from pytest import approx  # pyright: ignore[reportUnknownVariableType]
 from bones.color import (
     adjust_lightness,
     clip,
+    color_array,
     ColorTriplet,
     darken,
     interpolate_color,
@@ -161,3 +162,18 @@ class TestInterpolateColor:
         assert hue(interpolate_color(0.25, hmin=0.0, hmax=1.0)) == approx(0.25)
         assert hue(interpolate_color(0.5, hmin=0.0, hmax=1.0)) == approx(0.5)
         assert hue(interpolate_color(0.75, hmin=0.0, hmax=1.0)) == approx(0.75)
+
+
+class TestColorArray:
+    def test_color_array(self) -> None:
+        colors = color_array(9)
+        assert hue(colors[0]) == approx(240 / 360)
+        assert hue(colors[2]) == approx(300 / 360)
+        assert hue(colors[4]) == approx(0 / 360)
+        assert hue(colors[6]) == approx(60 / 360)
+        assert hue(colors[8]) == approx(120 / 360)
+        assert lightness(colors[0]) == approx(0.15)
+        assert lightness(colors[2]) == approx(0.3)
+        assert lightness(colors[4]) == approx(0.3)
+        assert lightness(colors[6]) == approx(0.85)  # yellow compensation
+        assert lightness(colors[8]) == approx(0.25)
