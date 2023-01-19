@@ -289,6 +289,11 @@ class PMF(Collection[ET_co]):
         return tuple(self.mapping.items())
 
     @functools.cached_property
+    def ranked_pairs(self) -> tuple[tuple[ET_co, Weight], ...]:
+        """Return all (event, weight) pairs in order of weight."""
+        return tuple(sorted(self.pairs, key=(lambda pair: pair[1])))
+
+    @functools.cached_property
     def image(self) -> tuple[Probability, ...]:
         """Return all event probabilities."""
         return tuple(Fraction(w, self.total) for w in self.weights)
@@ -351,8 +356,9 @@ class PMF(Collection[ET_co]):
         normalize: bool = False,
     ) -> Self:
         """Create a copy ordered by frequency rank."""
-        pairs = sorted(self.pairs, key=(lambda pair: pair[1]), reverse=reverse)
-        return self.from_pairs(pairs, normalize=normalize)
+        return self.from_pairs(
+            self.ranked_pairs, reverse=reverse, normalize=normalize
+        )
 
     def is_sorted(
         self,
@@ -431,6 +437,14 @@ class PMF(Collection[ET_co]):
     def standard_deviation(self: "PMF[_Real]") -> float:
         """Calculate the PMF standard distribtion as a float."""
         return math.sqrt(self.variance)
+
+    @functools.cached_property
+    def multimode(self) -> tuple[ET_co, ...]:
+        """Return a tuple of all events with the highest weight."""
+        if not len(self):
+            return ()
+        modal_weight = max(self.weights)
+        return tuple(ev for ev, wt in self.pairs if wt == modal_weight)
 
     def population(self) -> Iterator[ET_co]:
         """Iterate over all events, repeated by weight."""

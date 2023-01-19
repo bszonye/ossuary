@@ -445,6 +445,7 @@ class TestPMFAccessors:
             total - wt for wt in itertools.accumulate(mapping.values())
         )
         pairs = tuple((ev, wt) for ev, wt in mapping.items())
+        ranked_pairs = tuple(sorted(mapping.items(), key=(lambda pair: pair[1])))
         image = tuple(Fraction(wt, total) for wt in mapping.values())
         graph = tuple((ev, Fraction(wt, total)) for ev, wt in mapping.items())
 
@@ -461,6 +462,7 @@ class TestPMFAccessors:
         assert pmf.sum_weights == sum_weights
         assert pmf.tail_weights == tail_weights
         assert pmf.pairs == pairs
+        assert pmf.ranked_pairs == ranked_pairs
         assert pmf.image == image
         assert pmf.graph == graph
 
@@ -731,6 +733,12 @@ class TestPMFStatistics:
         assert d6.standard_deviation == approx(math.sqrt(35 / 12))
         with pytest.raises(ZeroDivisionError):
             PMF().standard_deviation
+
+    def test_multimode(self) -> None:
+        d6 = PMF(range(1, 7))
+        assert d6.multimode == (1, 2, 3, 4, 5, 6)
+        assert (2 @ d6).multimode == (7,)
+        assert (3 @ d6).multimode == (10, 11)
 
     def test_population(self) -> None:
         pmf = PMF({1: 3, 2: 2, 3: 1, 4: 0})
