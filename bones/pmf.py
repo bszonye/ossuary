@@ -11,6 +11,7 @@ __all__ = [
     "multiset_perm",
 ]
 
+import bisect
 import enum
 import functools
 import importlib
@@ -90,6 +91,7 @@ class PMF(Collection[ET_co]):
     __total: Weight
     __gcd: Weight
     __index: Mapping[ET_co, int]
+    __quantiles: dict[int, tuple[Self, ...]]
 
     # ==================================================================
     # CONSTRUCTORS
@@ -122,24 +124,26 @@ class PMF(Collection[ET_co]):
         if instance is None:
             instance = cls.__new__(cls)
 
-        # Rebuild from (event, weight) pairs if type or direction doesn't match.
+        # Rebuild from pairs if type or direction doesn't match.
         if reverse or type(other) is not cls:
             pairs = other.pairs
             return cls.from_pairs(
                 pairs, instance=instance, reverse=reverse, normalize=normalize
             )
 
-        if normalize and not other.is_normal():
-            gcd = other.gcd
-            weights: dict[ET_co, Weight] = {ev: wt // gcd for ev, wt in other.pairs}
-            instance.__weights = MappingProxyType(weights)
-            instance.__total = other.total // gcd
-            instance.__gcd = 1
-        else:
-            instance.__weights = other.__weights
-            instance.__total = other.__total
-            instance.__gcd = other.__gcd
+        # If possible, copy everything, including cached properties.
+        if not normalize or other.is_normal():
+            instance.__dict__.update(other.__dict__)
+            print(instance.__dict__)
+            return instance
+
+        gcd = other.gcd
+        weights: dict[ET_co, Weight] = {ev: wt // gcd for ev, wt in other.pairs}
+        instance.__weights = MappingProxyType(weights)
+        instance.__total = other.__total // gcd
+        instance.__gcd = 1
         instance.__index = other.__index
+        instance.__quantiles = {}
         return instance
 
     @classmethod
@@ -187,6 +191,7 @@ class PMF(Collection[ET_co]):
         instance.__index = MappingProxyType(
             {ev: i for i, ev in enumerate(instance.domain)}
         )
+        instance.__quantiles = {}
         return instance
 
     @classmethod
@@ -439,18 +444,69 @@ class PMF(Collection[ET_co]):
         return math.sqrt(self.variance)
 
     @functools.cached_property
+    def modal_weight(self) -> Weight:
+        """Return the highest weight in the PMF."""
+        return max(self.weights) if self.total else 0
+
+    @functools.cached_property
     def multimode(self) -> tuple[ET_co, ...]:
         """Return a tuple of all events with the highest weight."""
         if not len(self):
             return ()
-        modal_weight = max(self.weights)
-        return tuple(ev for ev, wt in self.pairs if wt == modal_weight)
+        return tuple(ev for ev, wt in self.pairs if wt == self.modal_weight)
 
     def population(self) -> Iterator[ET_co]:
         """Iterate over all events, repeated by weight."""
         return itertools.chain.from_iterable(
             itertools.starmap(itertools.repeat, self.pairs)
         )
+
+    @functools.cached_property
+    def auto_quantile(self) -> int:
+        """Recommend a reasonable quantile size."""
+        qmax = self.total // (self.modal_weight + 1)
+        return (qmax or 1) if qmax < 5 else 5 if qmax < 10 else 10
+
+    def quantile_groups(self, n: int | Auto = Ellipsis, /) -> tuple[Self, ...]:
+        """Partition the PMF into equally likely groups."""
+        q = n if isinstance(n, int) else self.auto_quantile
+        if q < 0:
+            raise ValueError("size must be non-negative")
+        if q < 2:  # all in one group
+            return (self,)
+
+        # Check cache.
+        if q in self.__quantiles:
+            return self.__quantiles[q]
+
+        buckets = tuple(q * cwt for cwt in self.sum_weights)
+        span = self.total
+        ql = qr = 0
+        groups: list[Self] = []
+        for i in range(q):
+            # Cumulative weight at group ends.
+            cl = span * i
+            cr = span + cl
+            # Indexes of events at group ends.
+            ql = bisect.bisect_right(buckets, cl, qr)
+            qr = bisect.bisect_left(buckets, cr, ql)
+            # Collect events & weights in range.
+            pairs: list[tuple[ET_co, Weight]] = []
+            if ql != qr:
+                pairs.append((self.domain[ql], buckets[ql] - cl))
+                for j in range(ql + 1, qr):
+                    pairs.append((self.domain[j], q * self.weights[j]))
+                pairs.append((self.domain[qr], cr - buckets[qr - 1]))
+            else:
+                pairs = [(self.domain[ql], cr - cl)]
+            pmf: Self = self.from_pairs(pairs)
+            assert pmf.total == self.total
+            groups.append(pmf)
+
+        # Cache and return result.
+        quantiles = tuple(groups)
+        self.__quantiles[q] = quantiles
+        return quantiles
 
     def quantiles(self, n: int | Auto = Ellipsis, /) -> Sequence[tuple[ET_co, ...]]:
         """Partition the domain into equally likely groups.

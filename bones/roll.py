@@ -90,7 +90,14 @@ class Die(PMF[ET_co]):
 
     def __repr__(self) -> str:
         """Format the PMF for diagnostics."""
-        return f"{type(self).__name__}({tuple(self.population())})"
+        parameters = (
+            # Show the full population if it's reasonable.
+            tuple(self.population())
+            if self.modal_weight < 4
+            # Otherwise, fall back to map representation.
+            else self.mapping
+        )
+        return f"{type(self).__name__}({parameters})"
 
 
 # Call d(K) to create the PMF for rolling 1dX.

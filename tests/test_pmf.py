@@ -429,6 +429,7 @@ class TestPMFAccessors:
         assert pmf.sum_weights == ()
         assert pmf.tail_weights == ()
         assert pmf.pairs == ()
+        assert pmf.ranked_pairs == ()
         assert pmf.image == ()
         assert pmf.graph == ()
 
@@ -529,6 +530,38 @@ class TestPMFCopy:
         assert len(copy) == len(norm)
         assert copy.mapping == dict(norm)
         assert copy.total == norm.total()
+
+    def test_copy_cache(self) -> None:
+        pets = ("cat", "dog", "cat", "ferret", "cat", "goat")
+
+        # Initialize cached properties.
+        pmf = PMF(pets)
+        _ = pmf.domain
+        _ = pmf.support
+        _ = pmf.zeroes
+        _ = pmf.weights
+        _ = pmf.sum_weights
+        _ = pmf.tail_weights
+        _ = pmf.pairs
+        _ = pmf.ranked_pairs
+        _ = pmf.image
+        _ = pmf.graph
+
+        # Verify exact copies.
+        copy = pmf.copy()
+        assert copy.mapping is pmf.mapping
+        assert copy.total is pmf.total
+        assert copy.gcd is pmf.gcd
+        assert copy.domain is pmf.domain
+        assert copy.support is pmf.support
+        assert copy.zeroes is pmf.zeroes
+        assert copy.weights is pmf.weights
+        assert copy.sum_weights is pmf.sum_weights
+        assert copy.tail_weights is pmf.tail_weights
+        assert copy.pairs is pmf.pairs
+        assert copy.ranked_pairs is pmf.ranked_pairs
+        assert copy.image is pmf.image
+        assert copy.graph is pmf.graph
 
     weights = {
         # Zero weights.
@@ -735,7 +768,9 @@ class TestPMFStatistics:
             PMF().standard_deviation
 
     def test_multimode(self) -> None:
+        d0 = PMF[int]()
         d6 = PMF(range(1, 7))
+        assert d0.multimode == ()
         assert d6.multimode == (1, 2, 3, 4, 5, 6)
         assert (2 @ d6).multimode == (7,)
         assert (3 @ d6).multimode == (10, 11)
@@ -745,6 +780,24 @@ class TestPMFStatistics:
         pop = pmf.population()
         assert isinstance(pop, Iterator)
         assert tuple(pop) == (1, 1, 1, 2, 2, 3)
+
+    def test_auto_quantile(self) -> None:
+        # Check breakpoints in uniform distributions.
+        assert PMF(range(0)).auto_quantile == 1
+        assert PMF(range(1)).auto_quantile == 1
+        assert PMF(range(3)).auto_quantile == 1
+        assert PMF(range(4)).auto_quantile == 2
+        assert PMF(range(10)).auto_quantile == 5
+        assert PMF(range(19)).auto_quantile == 5
+        assert PMF(range(20)).auto_quantile == 10
+        # Check uneven distributions.
+        assert (2 @ PMF(range(2))).auto_quantile == 1
+        assert (2 @ PMF(range(3))).auto_quantile == 2
+        assert (2 @ PMF(range(4))).auto_quantile == 3
+        assert (2 @ PMF(range(5))).auto_quantile == 4
+        assert (2 @ PMF(range(6))).auto_quantile == 5
+        assert (2 @ PMF(range(10))).auto_quantile == 5
+        assert (2 @ PMF(range(11))).auto_quantile == 10
 
 
 class TestPMFOutput:
