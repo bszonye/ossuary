@@ -31,7 +31,6 @@ from collections.abc import (
     Iterable,
     Iterator,
     Mapping,
-    Sequence,
 )
 from fractions import Fraction
 from gettext import gettext as _t
@@ -464,26 +463,27 @@ class PMF(Collection[ET_co]):
     @functools.cached_property
     def auto_quantile(self) -> int:
         """Recommend a reasonable quantile size."""
+        # TODO: tune this down a bit
         qmax = self.total // (self.modal_weight + 1)
         return (qmax or 1) if qmax < 5 else 5 if qmax < 10 else 10
 
     def quantile_groups(self, n: int | Auto = Ellipsis, /) -> tuple[Self, ...]:
         """Partition the PMF into equally likely groups."""
-        q = n if isinstance(n, int) else self.auto_quantile
-        if q < 0:
+        nq = n if isinstance(n, int) else self.auto_quantile
+        if nq < 0:
             raise ValueError("size must be non-negative")
-        if q < 2:  # all in one group
+        if nq < 2:  # all in one group
             return (self,)
 
         # Check cache.
-        if q in self.__quantiles:
-            return self.__quantiles[q]
+        if nq in self.__quantiles:
+            return self.__quantiles[nq]
 
-        buckets = tuple(q * cwt for cwt in self.sum_weights)
+        buckets = tuple(nq * cwt for cwt in self.sum_weights)
         span = self.total
         ql = qr = 0
         groups: list[Self] = []
-        for i in range(q):
+        for i in range(nq):
             # Cumulative weight at group ends.
             cl = span * i
             cr = span + cl
@@ -495,7 +495,7 @@ class PMF(Collection[ET_co]):
             if ql != qr:
                 pairs.append((self.domain[ql], buckets[ql] - cl))
                 for j in range(ql + 1, qr):
-                    pairs.append((self.domain[j], q * self.weights[j]))
+                    pairs.append((self.domain[j], nq * self.weights[j]))
                 pairs.append((self.domain[qr], cr - buckets[qr - 1]))
             else:
                 pairs = [(self.domain[ql], cr - cl)]
@@ -505,64 +505,8 @@ class PMF(Collection[ET_co]):
 
         # Cache and return result.
         quantiles = tuple(groups)
-        self.__quantiles[q] = quantiles
+        self.__quantiles[nq] = quantiles
         return quantiles
-
-    def quantiles(self, n: int | Auto = Ellipsis, /) -> Sequence[tuple[ET_co, ...]]:
-        """Partition the domain into equally likely groups.
-
-        Quantiles divide a probability distribution into continuous,
-        equal intervals.  The term can refer either to the cut points or
-        the equal groups; this method returns the groups.  If there is
-        an exact median and an even number of groups, this method places
-        the median into the upper group.
-        """
-        size = len(self)
-        n = (
-            n
-            if isinstance(n, int)
-            else 1
-            if size < 4
-            else 4
-            if size in (4, 6, 8, 12, 16)
-            else 5
-            if size < 18
-            else 10
-        )
-
-        if n < 0:
-            raise ValueError("size must be non-negative")
-        if n < 2:  # all in one group
-            return (self.domain,)
-
-        groups: list[list[ET_co]] = [[] for _ in range(n)]
-
-        # Scale sizes to the least common multiple to avoid rounding.
-        total = math.lcm(2 * self.total, n)
-        scale = total // self.total
-        bucket = total // n
-
-        pairs = iter(self.pairs)
-        acc = 0
-        try:
-            ev, wt = next(pairs)
-            wt *= scale
-            for i in range(n):
-                limit = bucket * (i + 1)
-                while (midpoint := acc + wt // 2) <= limit:
-                    # If a quantile falls exactly in the middle of an
-                    # event, round toward the center for symmetry.
-                    if midpoint == limit and 2 * limit <= total:
-                        break
-                    acc += wt
-                    groups[i].append(ev)
-                    ev, wt = next(pairs)
-                    wt *= scale
-        except StopIteration:
-            pass
-        assert acc == total
-
-        return tuple(tuple(group) for group in groups)
 
     # ==================================================================
     # TABULATON AND OUTPUT
@@ -635,54 +579,80 @@ class PMF(Collection[ET_co]):
         legend: list[str] = []
 
         # Group events into quantiles.
-        quantiles = self.quantiles(q or 0)
-        nq = len(quantiles)
-        color: tuple[ColorTriplet, ...]
-        if 2 <= nq:  # Set up quantile colors.
-            color = tuple()
+        nq = q if isinstance(q, int) else self.auto_quantile
+        color1: list[ColorTriplet] = []  # stripe 1 color
+        color2: list[ColorTriplet] = []  # stripe 2 color
+        hatch: list[str] = []
+        hatch_width = 1.0
+        if 2 <= nq:
+            # Set up quantile colors.
+            qmax = nq - 1
+            hues = min(max(180, 30 * qmax), 285)
+            icolor = functools.partial(
+                interpolate_color,
+                tmax=qmax,
+                hmin=(0 - hues / 2) / 360,
+                hmax=(0 + hues / 2) / 360,
+                lmin=0.15,
+                lmax=0.25,
+            )
+            hatch_width = 6.0 * math.sqrt(2)
+            quantiles = self.quantile_groups(q or 0)
             for i in range(nq):
-                # Color quantiles from blue to red to green.
-                qmax = nq - 1
-                hues = min(max(180, 30 * qmax), 285)
-                hmin = (0 - hues / 2) / 360
-                hmax = (0 + hues / 2) / 360
-                qcolor = interpolate_color(
-                    i, tmax=qmax, hmin=hmin, hmax=hmax, lmin=0.15, lmax=0.25
-                )
-                color = color + (qcolor,) * len(quantiles[i])
                 # Label quantiles from 1/N to N/N.
                 width = len(str(nq))
                 fill = "\u2007"  # U+2007 FIGURE SPACE, &numsp;
                 label = f"{1+i:{fill}>{width}d}/{nq}"
-                legend.append(patches.Patch(color=qcolor, label=label))
+                legend.append(patches.Patch(color=icolor(i), label=label))
+            for i in range(n):
+                # Zero-weight events are black.
+                if not self.weights[i]:
+                    color1.append((0, 0, 0))
+                    color2.append((0, 0, 0))
+                    continue
+                # Color events from blue to red to green.
+                groups = [j for j in range(nq) if domain[i] in quantiles[j]]
+                hatch.append("" if len(groups) == 1 else "/")
+                color1.append(icolor(groups[0]))
+                color2.append(icolor(groups[-1]))
         else:
             # Color probabilities from violet to red.
-            color = tuple(
+            color1 = [
                 interpolate_color(i, tmin=min(image), tmax=max(image)) for i in image
-            )
-        edge = tuple(adjust_lightness(0.65, c) for c in color)
+            ]
+        edgecolor = [adjust_lightness(0.65, c) for c in color1]
 
+        # Main bar colors.
         chart = ax.bar(
             x=range(n),
             height=image,
             tick_label=xlabels,
-            color=color,
-            edgecolor=edge,
-            # hatch="/",
+            color=color1,
+            edgecolor=color2 or edgecolor,
+            hatch=hatch or "",
         )
+        # Edges only, to cover the hatch color.
+        if color2:
+            ax.bar(
+                x=range(n),
+                height=image,
+                color="none",
+                edgecolor=edgecolor,
+            )
+        # Labels and legend.
         ax.set_xlabel("Events")  # TODO: customizable title
         ax.set_ylabel("Probability")
         ax.bar_label(chart, labels=ylabels, padding=1, fontsize="x-small")
         if legend:
             ax.legend(
-                title=quantile_name(len(quantiles)),
+                title=quantile_name(nq),
                 title_fontsize="small",
                 handles=legend,
                 fontsize="x-small",
             )
 
         # Show plot.
-        with plt.rc_context({"hatch.linewidth": 8.5}):
+        with plt.rc_context({"hatch.linewidth": hatch_width}):
             plt.show(block=block)
 
     def tabulate(
