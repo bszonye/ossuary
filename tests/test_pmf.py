@@ -20,6 +20,7 @@ _T = TypeVar("_T")
 
 WeightPair: TypeAlias = tuple[_T, Weight]
 WeightPairs: TypeAlias = Sequence[WeightPair[_T]]
+Cap: TypeAlias = pytest.CaptureFixture[str]
 
 
 def expected(pairs: Iterable[tuple[_T, Weight]]) -> tuple[Counter[_T], Counter[_T]]:
@@ -826,6 +827,32 @@ class TestPMFOutput:
             ("2.00", "33.33"),
             ("3.00", "16.67"),
         )
+
+    def test_plot_console(self, capsys: Cap) -> None:
+        pmf = PMF((1, 2, 1, 3))
+        pmf.plot(console=True)
+        cap = capsys.readouterr()
+        assert cap.out == "1  50.00\n2  25.00\n3  25.00\n"
+        assert cap.err == ""
+
+    def test_plot_fallback(self, capsys: Cap) -> None:
+        pmf = PMF((1, 2, 1, 3))
+        pmf.plot(plotlib="not_a_real_module_name")
+        cap = capsys.readouterr()
+        assert cap.out == "1  50.00\n2  25.00\n3  25.00\n"
+        assert cap.err == ""
+
+    def test_plot_basic_whole(self) -> None:
+        # TODO: use mocks to test behavior?
+        # For now, just run through the method to find exceptions.
+        pmf = PMF({1: 1, 2: 2, 3: 0, 4: 2, 5: 1})
+        pmf.plot(q=1, block=False)
+
+    def test_plot_basic_halves(self) -> None:
+        # TODO: use mocks to test behavior?
+        # For now, just run through the method to find exceptions.
+        pmf = PMF({1: 1, 2: 2, 3: 0, 4: 2, 5: 1})
+        pmf.plot(q=2, block=False)
 
     def test_tabulate_empty(self) -> None:
         pmf = PMF[Any]()

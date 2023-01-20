@@ -133,7 +133,6 @@ class PMF(Collection[ET_co]):
         # If possible, copy everything, including cached properties.
         if not normalize or other.is_normal():
             instance.__dict__.update(other.__dict__)
-            print(instance.__dict__)
             return instance
 
         gcd = other.gcd
@@ -596,6 +595,7 @@ class PMF(Collection[ET_co]):
             for i in range(n):
                 # Zero-weight events are black.
                 if not self.weights[i]:
+                    hatch.append("")
                     color1.append((0, 0, 0))
                     color2.append((0, 0, 0))
                     continue
