@@ -2,6 +2,7 @@
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
+import importlib.util
 import itertools
 import math
 import operator
@@ -9,6 +10,7 @@ from collections import Counter
 from collections.abc import Iterable, Iterator, Sequence
 from fractions import Fraction
 from typing import Any, TypeAlias, TypeVar
+from unittest.mock import patch
 
 import pytest
 from pytest import approx  # pyright: ignore[reportUnknownVariableType]
@@ -837,22 +839,48 @@ class TestPMFOutput:
 
     def test_plot_fallback(self, capsys: Cap) -> None:
         pmf = PMF((1, 2, 1, 3))
-        pmf.plot(plotlib="not_a_real_module_name")
+
+        # Simulate a runtime environment without matplotlib.
+        with patch("importlib.util.find_spec", return_value=None) as mock_find_spec:
+            pmf.plot(console=False)
+        mock_find_spec.assert_called_once_with("matplotlib")
+
+        # Test the fallback console output.
         cap = capsys.readouterr()
         assert cap.out == "1  50.00\n2  25.00\n3  25.00\n"
         assert cap.err == ""
 
-    def test_plot_basic_whole(self) -> None:
-        # TODO: use mocks to test behavior?
-        # For now, just run through the method to find exceptions.
+    def test_plot_basic_whole(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        if importlib.util.find_spec("matplotlib") is None:
+            return  # OK, ignore this test in a non-plot environment.
+
         pmf = PMF({1: 1, 2: 2, 3: 0, 4: 2, 5: 1})
-        pmf.plot(q=1, block=False)
+        with (
+            patch("matplotlib.axes.Axes.bar") as mock_bar,
+            patch("matplotlib.axes.Axes.bar_label") as mock_bar_label,
+            patch("matplotlib.pyplot.show") as mock_show,
+        ):
+            pmf.plot(q=1)
+
+        mock_bar.assert_called_once()
+        mock_bar_label.assert_called_once()
+        mock_show.assert_called_once_with(block=True)
 
     def test_plot_basic_halves(self) -> None:
-        # TODO: use mocks to test behavior?
-        # For now, just run through the method to find exceptions.
+        if importlib.util.find_spec("matplotlib") is None:
+            return  # OK, ignore this test in a non-plot environment.
+
         pmf = PMF({1: 1, 2: 2, 3: 0, 4: 2, 5: 1})
-        pmf.plot(q=2, block=False)
+        with (
+            patch("matplotlib.axes.Axes.bar") as mock_bar,
+            patch("matplotlib.axes.Axes.bar_label") as mock_bar_label,
+            patch("matplotlib.pyplot.show") as mock_show,
+        ):
+            pmf.plot(q=2)
+
+        assert mock_bar.call_count == 2
+        mock_bar_label.assert_called_once()
+        mock_show.assert_called_once_with(block=True)
 
     def test_tabulate_empty(self) -> None:
         pmf = PMF[Any]()

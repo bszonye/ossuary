@@ -544,93 +544,90 @@ class PMF(Collection[ET_co]):
         xformat: str = "",
         yformat: str = ".2f",
         scale: _Real = 100,
+        stats: bool = True,
+        sformat: str = ".2f",
         window_title: str = "bones",
         block: bool = True,
         console: bool = False,
-        plotlib: str = "matplotlib",
     ) -> None:
         """Display the PMF with matplotlib."""
         # Common console/plotlib variables.
         fspec = ":".join((xformat, yformat))
 
-        # Fall back to console if plotlib is unavailable or overridden.
-        if importlib.util.find_spec(plotlib) is None:
+        # Fall back to console if matplotlib is unavailable or overridden.
+        if importlib.util.find_spec("matplotlib") is None:
             console = True
         if console:
             print("\n".join(self.tabulate(fspec, scale=scale)))
             return
 
-        # Dynamically import plotlib for modularity & testability.
-        plt = importlib.import_module(".pyplot", package=plotlib)
-        patches = importlib.import_module(".patches", package=plotlib)
-
-        # Set up plot.
-        fig, ax = plt.subplots()
-        fig.canvas.manager.set_window_title(window_title)
+        from matplotlib import patches, pyplot
 
         domain = self.domain
         image = tuple(float(self(v)) for v in domain)
         n = len(domain)
 
+        # Format event & probability labels.
         xlabels, ylabels = zip(*self.format_pairs(fspec, scale=scale), strict=True)
+
+        bcolor: list[ColorTriplet] = []
+        hcolor: list[ColorTriplet] = []
         legend: list[Any] = []
 
-        # Group events into quantiles.
         nq = 0 if q is None else q if isinstance(q, int) else self.auto_quantile
-        color1: list[ColorTriplet] = []  # stripe 1 color
-        color2: list[ColorTriplet] = []  # stripe 2 color
-        hatch: list[str] = []
-        hatch_style = "/"
-        hatch_width = 6.0 * math.sqrt(2)
-        if 2 <= nq:
-            # Set up quantile colors.
-            qcolor = color_array(nq)
-            for i in range(nq):
-                # Label quantiles from 1/N to N/N.
-                width = len(str(nq))
+        if nq < 2:
+            # Color probabilities individually: violet=zero, red=max.
+            tmin = min(image)
+            tmax = max(image)
+            bcolor = [interpolate_color(i, tmin=tmin, tmax=tmax) for i in image]
+        else:
+            # Group events into color-coded quantiles.
+            spectrum = color_array(nq)
+            # Label quantiles from 1/N to N/N.
+            nqlabel = str(nq)
+            for i, c in enumerate(spectrum):
                 fill = "\u2007"  # U+2007 FIGURE SPACE, &numsp;
-                label = f"{1+i:{fill}>{width}d}/{nq}"
-                legend.append(patches.Patch(color=qcolor[i], label=label))
+                label = f"{1+i:{fill}>{len(nqlabel)}d}/{nqlabel}"
+                legend.append(patches.Patch(color=c, label=label))
             quantiles = self.quantile_groups(q or 0)
+            # Color each event.
             for i in range(n):
                 # Zero-weight events are black.
                 if not self.weights[i]:
-                    hatch.append("")
-                    color1.append((0, 0, 0))
-                    color2.append((0, 0, 0))
+                    bcolor.append((0, 0, 0))
+                    hcolor.append((0, 0, 0))
                     continue
                 # Color events from blue to red to green.
                 groups = [j for j in range(nq) if domain[i] in quantiles[j]]
-                hatch.append("" if len(groups) == 1 else hatch_style)
-                color1.append(qcolor[groups[0]])
-                color2.append(qcolor[groups[-1]])
-        else:
-            # Color probabilities from violet to red.
-            color1 = [
-                interpolate_color(i, tmin=min(image), tmax=max(image)) for i in image
-            ]
-        edgecolor = [adjust_lightness(0.65, c) for c in color1]
+                bcolor.append(spectrum[groups[0]])
+                hcolor.append(spectrum[groups[-1]])
+
+        # Derive edge color and hatch pattern from the main bar colors.
+        ecolor = [adjust_lightness(0.65, c) for c in bcolor]
+        hatch = ["/" if bcolor[i] != hc else "" for i, hc in enumerate(hcolor)]
+
+        # Set up plot.
+        fig, ax = pyplot.subplots()
+        fig.canvas.manager.set_window_title(window_title)
 
         # Main bar colors.
         chart = ax.bar(
             x=range(n),
             height=image,
             tick_label=xlabels,
-            color=color1,
-            edgecolor=color2 or edgecolor,
+            color=bcolor,
+            edgecolor=hcolor or ecolor,
             hatch=hatch or "",
         )
         # Edges only, to cover the hatch color.
-        if color2:
+        if hcolor:
             ax.bar(
                 x=range(n),
                 height=image,
                 color="none",
-                edgecolor=edgecolor,
+                edgecolor=ecolor,
             )
         # Labels and legend.
-        ax.set_xlabel("Events")  # TODO: customizable title
-        ax.set_ylabel("Probability")
         ax.bar_label(chart, labels=ylabels, padding=1, fontsize="x-small")
         if legend:
             ax.legend(
@@ -639,10 +636,20 @@ class PMF(Collection[ET_co]):
                 handles=legend,
                 fontsize="x-small",
             )
+        # Statistical information.
+        if stats:
+            try:  # Only some event types will support this.
+                mean = format(self.mean, sformat)  # type: ignore
+                stdev = format(self.standard_deviation, sformat)  # type: ignore
+                statline = f"\u03bc = {mean}, \u03c3 = {stdev}"
+                ax.set_xlabel(statline)
+            except (TypeError, ValueError):
+                pass
 
         # Show plot.
-        with plt.rc_context({"hatch.linewidth": hatch_width}):
-            plt.show(block=block)
+        hatch_width = 6.0 * math.sqrt(2)
+        with pyplot.rc_context({"hatch.linewidth": hatch_width}):
+            pyplot.show(block=block)
 
     def tabulate(
         self,
