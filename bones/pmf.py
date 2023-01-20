@@ -572,9 +572,11 @@ class PMF(Collection[ET_co]):
         # Format event & probability labels.
         xlabels, ylabels = zip(*self.format_pairs(fspec, scale=scale), strict=True)
 
+        legend: list[Any] = []
         bcolor: list[ColorTriplet] = []
         hcolor: list[ColorTriplet] = []
-        legend: list[Any] = []
+        hpattern = "//"
+        hwidth = 3.0 * math.sqrt(2)
 
         nq = 0 if q is None else q if isinstance(q, int) else self.auto_quantile
         if nq < 2:
@@ -584,10 +586,18 @@ class PMF(Collection[ET_co]):
             bcolor = [interpolate_color(i, tmin=tmin, tmax=tmax) for i in image]
         else:
             # Group events into color-coded quantiles.
-            spectrum = color_array(nq)
+            colors = color_array(nq)
             # Label quantiles from 1/N to N/N.
             nqlabel = str(nq)
-            for i, c in enumerate(spectrum):
+            qpatch = patches.Patch(
+                facecolor=colors[0],
+                edgecolor=colors[1],
+                hatch=hpattern,
+                linewidth=0,
+                label=quantile_name(nq, kind=QK.CUT, plural=(2 < nq)),
+            )
+            legend.append(qpatch)
+            for i, c in enumerate(colors):
                 fill = "\u2007"  # U+2007 FIGURE SPACE, &numsp;
                 label = f"{1+i:{fill}>{len(nqlabel)}d}/{nqlabel}"
                 legend.append(patches.Patch(color=c, label=label))
@@ -601,12 +611,12 @@ class PMF(Collection[ET_co]):
                     continue
                 # Color events from blue to red to green.
                 groups = [j for j in range(nq) if domain[i] in quantiles[j]]
-                bcolor.append(spectrum[groups[0]])
-                hcolor.append(spectrum[groups[-1]])
+                bcolor.append(colors[groups[0]])
+                hcolor.append(colors[groups[-1]])
 
         # Derive edge color and hatch pattern from the main bar colors.
         ecolor = [adjust_lightness(0.65, c) for c in bcolor]
-        hatch = ["/" if bcolor[i] != hc else "" for i, hc in enumerate(hcolor)]
+        hatch = [hpattern if bcolor[i] != hc else "" for i, hc in enumerate(hcolor)]
 
         # Set up plot.
         fig, ax = pyplot.subplots()
@@ -618,25 +628,24 @@ class PMF(Collection[ET_co]):
             height=image,
             tick_label=xlabels,
             color=bcolor,
-            edgecolor=hcolor or ecolor,
-            hatch=hatch or "",
+            edgecolor=hcolor or None,
+            linestyle=None,
+            hatch=hatch or None,
         )
         # Edges only, to cover the hatch color.
-        if hcolor:
-            ax.bar(
-                x=range(n),
-                height=image,
-                color="none",
-                edgecolor=ecolor,
-            )
+        ax.bar(
+            x=range(n),
+            height=image,
+            color="none",
+            edgecolor=ecolor,
+        )
         # Labels and legend.
         ax.bar_label(chart, labels=ylabels, padding=1, fontsize="x-small")
         if legend:
             ax.legend(
-                title=quantile_name(nq),
-                title_fontsize="small",
                 handles=legend,
                 fontsize="x-small",
+                markerfirst=False,
             )
         # Statistical information.
         if stats:
@@ -649,8 +658,7 @@ class PMF(Collection[ET_co]):
                 pass
 
         # Show plot.
-        hatch_width = 6.0 * math.sqrt(2)
-        with pyplot.rc_context({"hatch.linewidth": hatch_width}):
+        with pyplot.rc_context({"hatch.linewidth": hwidth}):
             pyplot.show(block=block)
 
     def tabulate(

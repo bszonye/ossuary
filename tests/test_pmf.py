@@ -862,7 +862,7 @@ class TestPMFOutput:
         ):
             pmf.plot(q=1)
 
-        mock_bar.assert_called_once()
+        assert mock_bar.call_count == 2
         mock_bar_label.assert_called_once()
         mock_show.assert_called_once_with(block=True)
 
