@@ -850,7 +850,7 @@ class TestPMFOutput:
         assert cap.out == "1  50.00\n2  25.00\n3  25.00\n"
         assert cap.err == ""
 
-    def test_plot_basic_whole(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_plot_ungrouped(self) -> None:
         if importlib.util.find_spec("matplotlib") is None:
             return  # OK, ignore this test in a non-plot environment.
 
@@ -866,7 +866,7 @@ class TestPMFOutput:
         mock_bar_label.assert_called_once()
         mock_show.assert_called_once_with(block=True)
 
-    def test_plot_basic_halves(self) -> None:
+    def test_plot_quantiles(self) -> None:
         if importlib.util.find_spec("matplotlib") is None:
             return  # OK, ignore this test in a non-plot environment.
 
@@ -881,6 +881,22 @@ class TestPMFOutput:
         assert mock_bar.call_count == 2
         mock_bar_label.assert_called_once()
         mock_show.assert_called_once_with(block=True)
+
+    def test_plot_no_stats(self) -> None:
+        if importlib.util.find_spec("matplotlib") is None:
+            return  # OK, ignore this test in a non-plot environment.
+
+        pmf = PMF(("cat", "dog", "goat"))
+        with (
+            patch("matplotlib.axes.Axes.set_xlabel") as mock_set_xlabel,
+            patch("matplotlib.pyplot.show") as mock_show,
+        ):
+            pmf.plot(q=1, stats=True)
+            pmf.plot(q=1, stats=False)
+
+        # This PMF shouldn't show stats either way.
+        mock_set_xlabel.assert_not_called()
+        assert mock_show.call_count == 2
 
     def test_tabulate_empty(self) -> None:
         pmf = PMF[Any]()
