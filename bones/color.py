@@ -16,7 +16,6 @@ __all__ = [
 ]
 
 import colorsys
-import math
 from typing import TypeAlias
 
 ColorTriplet: TypeAlias = tuple[float, float, float]
@@ -123,11 +122,15 @@ def interpolate_color(
     return clip(set_lightness(lstar, (r, g, b)))
 
 
-def color_array(n: int, /, hue: float = 0.75) -> tuple[ColorTriplet, ...]:
+def color_array(
+    n: int, /, hue: float = 0.75, step: float = 0.0
+) -> tuple[ColorTriplet, ...]:
     """Create an array of spectral colors centered around a hue."""
+    if not step:
+        step = 0.387
     return tuple(
         interpolate_color(
-            i * (math.sqrt(2) / 4),
+            step * i,
             tmax=1.0,
             hmin=hue,
             hmax=hue + 1.0,

@@ -154,7 +154,17 @@ class TestInterpolateColor:
 
 
 class TestColorArray:
-    def test_color_array(self) -> None:
+    def test_simple(self) -> None:
         colors = color_array(10)
         assert hue(colors[0]) == approx(270 / 360)
         assert lightness(colors[0]) == approx(0.3)
+
+    def test_hue(self) -> None:
+        colors = color_array(1, hue=0.0)
+        assert hue(colors[0]) == 0.0
+        assert lightness(colors[0]) == approx(0.3)
+
+    def test_step(self) -> None:
+        colors = color_array(4, step=0.25)
+        assert hue(colors[3]) == approx(180 / 360)
+        assert lightness(colors[3]) == approx(0.65)
