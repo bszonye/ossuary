@@ -789,18 +789,18 @@ class TestPMFStatistics:
         assert PMF(range(0)).auto_quantile == 1
         assert PMF(range(1)).auto_quantile == 1
         assert PMF(range(3)).auto_quantile == 1
-        assert PMF(range(4)).auto_quantile == 2
-        assert PMF(range(10)).auto_quantile == 5
+        assert PMF(range(4)).auto_quantile == 1
+        assert PMF(range(10)).auto_quantile == 2
         assert PMF(range(19)).auto_quantile == 5
-        assert PMF(range(20)).auto_quantile == 10
+        assert PMF(range(20)).auto_quantile == 5
         # Check uneven distributions.
         assert (2 @ PMF(range(2))).auto_quantile == 1
-        assert (2 @ PMF(range(3))).auto_quantile == 2
-        assert (2 @ PMF(range(4))).auto_quantile == 3
-        assert (2 @ PMF(range(5))).auto_quantile == 4
-        assert (2 @ PMF(range(6))).auto_quantile == 5
+        assert (2 @ PMF(range(3))).auto_quantile == 1
+        assert (2 @ PMF(range(4))).auto_quantile == 2
+        assert (2 @ PMF(range(5))).auto_quantile == 2
+        assert (2 @ PMF(range(6))).auto_quantile == 3
         assert (2 @ PMF(range(10))).auto_quantile == 5
-        assert (2 @ PMF(range(11))).auto_quantile == 10
+        assert (2 @ PMF(range(20))).auto_quantile == 10
 
 
 class TestPMFOutput:

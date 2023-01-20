@@ -16,6 +16,7 @@ __all__ = [
 ]
 
 import colorsys
+import math
 from typing import TypeAlias
 
 ColorTriplet: TypeAlias = tuple[float, float, float]
@@ -103,10 +104,8 @@ def interpolate_color(
     hmin: float = 0.75,
     hmax: float = 0.0,
     lstar: float = 0.3,
-    lmin: float = 0.3,
-    lmax: float = 0.3,
-    lramp: float = 0.25,
-    yellow: float = 0.85,
+    yellow: float = 0.9,
+    cyan: float = 0.65,
 ) -> ColorTriplet:
     """Translate a range of numbers to a range of colors."""
     # Normalize t to the [0.0, 1.0] interval and interpolate a hue.
@@ -116,30 +115,22 @@ def interpolate_color(
     # hue += math.sin(6.0 * math.pi * hue) / 36.0
     r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
 
-    # Adjust lightness near the ends of the range.
-    if x < lramp:
-        lstar = (lstar - lmin) * (1.0 / lramp) * x + lmin
-    elif (1.0 - lramp) < x:
-        lstar = (lstar - lmax) * (1.0 / lramp) * (1.0 - x) + lmax
-    # Keep yellows bright.
-    ymix = 1.0 - 6.0 * abs(min(hue, 1 / 3) - (1 / 6))
-    lstar = (yellow - lstar) * ymix + lstar
+    # Keep yellows and cyans bright.
+    ymix = 1.0 - 6.0 * min(abs(hue - 60 / 360), 60 / 360)
+    cmix = 1.0 - 6.0 * min(abs(hue - 180 / 360), 60 / 360)
+    lstar += (yellow - lstar) * ymix + (cyan - lstar) * cmix
     # Return the color with adjusted lightness.
     return clip(set_lightness(lstar, (r, g, b)))
 
 
-def color_array(n: int, /, hue: float = 0.0) -> tuple[ColorTriplet, ...]:
+def color_array(n: int, /, hue: float = 0.75) -> tuple[ColorTriplet, ...]:
     """Create an array of spectral colors centered around a hue."""
-    nmax = n - 1
-    hrange = min(max(180, 30 * nmax), 285)
     return tuple(
         interpolate_color(
-            i,
-            tmax=nmax,
-            hmin=hue - hrange / 720,
-            hmax=hue + hrange / 720,
-            lmin=0.15,
-            lmax=0.25,
+            i * (math.sqrt(2) / 4),
+            tmax=1.0,
+            hmin=hue,
+            hmax=hue + 1.0,
         )
         for i in range(n)
     )

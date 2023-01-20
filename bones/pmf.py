@@ -459,7 +459,13 @@ class PMF(Collection[ET_co]):
     def auto_quantile(self) -> int:
         """Recommend a reasonable quantile size."""
         # TODO: tune this down a bit
-        qmax = self.total // (self.modal_weight + 1)
+        qmax = min(
+            # No events wider than a whole quantile.
+            self.total // (self.modal_weight + 1),
+            # At least three events between each cut.
+            (len(self) + 1) // 4,
+        )
+        print(f"{qmax=}")
         return (qmax or 1) if qmax < 5 else 5 if qmax < 10 else 10
 
     def quantile_groups(self, n: int | Auto = Ellipsis, /) -> tuple[Self, ...]:

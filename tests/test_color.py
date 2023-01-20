@@ -141,17 +141,6 @@ class TestInterpolateColor:
         blue = interpolate_color(0.0, tmax=0.0, hmax=0.6666667)
         assert hue(blue) == approx(0.6666667)
 
-    def test_highlight(self) -> None:
-        # Use a bright color that gets dimmed to exactly 0.5 lightness.
-        cyan1 = interpolate_color(0.0, hmin=-0.5, hmax=0.5, lmin=0.1)  # darker
-        assert hue(cyan1) == approx(0.5)
-        assert saturation(cyan1) == approx(1.0)
-        assert lightness(cyan1) == approx(0.1)
-        cyan2 = interpolate_color(1.0, hmin=-0.5, hmax=0.5, lmax=0.1)  # lighter
-        assert hue(cyan2) == approx(0.5)
-        assert saturation(cyan2) == approx(1.0)
-        assert lightness(cyan2) == approx(0.1)
-
     def test_lerp(self) -> None:
         # Default ranges.
         assert hue(interpolate_color(0.0)) == approx(0.75)
@@ -166,14 +155,6 @@ class TestInterpolateColor:
 
 class TestColorArray:
     def test_color_array(self) -> None:
-        colors = color_array(9)
-        assert hue(colors[0]) == approx(240 / 360)
-        assert hue(colors[2]) == approx(300 / 360)
-        assert hue(colors[4]) == approx(0 / 360)
-        assert hue(colors[6]) == approx(60 / 360)
-        assert hue(colors[8]) == approx(120 / 360)
-        assert lightness(colors[0]) == approx(0.15)
-        assert lightness(colors[2]) == approx(0.3)
-        assert lightness(colors[4]) == approx(0.3)
-        assert lightness(colors[6]) == approx(0.85)  # yellow compensation
-        assert lightness(colors[8]) == approx(0.25)
+        colors = color_array(10)
+        assert hue(colors[0]) == approx(270 / 360)
+        assert lightness(colors[0]) == approx(0.3)
