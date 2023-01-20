@@ -84,8 +84,6 @@ class PMF(Collection[ET_co]):
     both count-based and probability-based accessors.
     """
 
-    # TODO: event type check and conversion
-
     __weights: Mapping[ET_co, Weight]
     __total: Weight
     __gcd: Weight
@@ -308,7 +306,6 @@ class PMF(Collection[ET_co]):
 
     def probability(self, event: Any, /) -> Probability:
         """Return the probability of a given event."""
-        # TODO: accept multiple arguments?
         weight = self.weight(event)
         return Fraction(weight, self.total or 1)
 
@@ -316,7 +313,6 @@ class PMF(Collection[ET_co]):
 
     def weight(self, event: Any, /) -> Weight:
         """Return the probability weight of a given event."""
-        # TODO: accept multiple arguments?
         try:
             weight = self.mapping.get(event, 0)
         except TypeError:  # not Hashable
@@ -399,7 +395,7 @@ class PMF(Collection[ET_co]):
     # ==================================================================
     # STATISTICS
 
-    # TODO: median, mode
+    # TODO: median
 
     @functools.cached_property
     def _mean_numerator(self: "PMF[_Real]") -> ET_co:
@@ -656,7 +652,7 @@ class PMF(Collection[ET_co]):
         spec: str = "",
         /,
         *,
-        scale: _Real = 1,  # TODO: switch to pair_format
+        scale: _Real = 1,
         align: bool = True,
         separator: str | None = None,
     ) -> Iterator[str]:

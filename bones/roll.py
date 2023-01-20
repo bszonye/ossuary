@@ -128,7 +128,6 @@ class Dice(Collection[ET_co]):
 
 
 # TODO: sunset DiceTuplePMF
-# TODO: allow other Hashable dice values?
 DiceIterable = Iterable[int]
 DiceTuple = tuple[int, ...]
 
