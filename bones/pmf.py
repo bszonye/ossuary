@@ -587,21 +587,24 @@ class PMF(Collection[ET_co]):
         else:
             # Group events into color-coded quantiles.
             colors = color_array(nq)
-            # Label quantiles from 1/N to N/N.
-            nqlabel = str(nq)
-            qpatch = patches.Patch(
-                facecolor=colors[0],
-                edgecolor=colors[1],
-                hatch=hpattern,
-                linewidth=0,
-                label=quantile_name(nq, kind=QK.CUT, plural=(2 < nq)),
-            )
-            legend.append(qpatch)
-            for i, c in enumerate(colors):
-                fill = "\u2007"  # U+2007 FIGURE SPACE, &numsp;
-                label = f"{1+i:{fill}>{len(nqlabel)}d}/{nqlabel}"
-                legend.append(patches.Patch(color=c, label=label))
             quantiles = self.quantile_groups(q or 0)
+
+            # Label quantiles from 1/N to N/N.
+            def quantile_legend(i: int, label: str) -> patches.Patch:
+                return patches.Patch(
+                    facecolor=colors[i - 1],
+                    edgecolor=colors[i],
+                    hatch=hpattern,
+                    linewidth=0,
+                    label=label,
+                )
+
+            qname = quantile_name(nq)
+            if nq % 2 == 0:
+                legend.append(quantile_legend(nq // 2, quantile_name(2)))
+            if 3 <= nq:
+                legend.append(quantile_legend(1, _t("first {}".format(qname))))
+                legend.append(quantile_legend(nq - 1, _t("last {}".format(qname))))
             # Color each event.
             for i in range(n):
                 # Zero-weight events are black.
@@ -1084,8 +1087,7 @@ class QK(enum.IntEnum):
 
 
 @functools.cache
-def quantile_name(size: int, /, *, kind: QK = QK.GROUP, plural: bool = True) -> str:
+def quantile_name(size: int, /, *, kind: QK = QK.CUT, plural: bool = False) -> str:
     """Return the name for a quantile of given size."""
     default = quantile_names[kind][0]
-    name = quantile_names[kind].get(size, default)
-    return name[int(plural)].format(size)
+    return quantile_names[kind].get(size, default)[int(plural)].format(size)
