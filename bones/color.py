@@ -125,9 +125,9 @@ def interpolate_color(
 def color_array(
     n: int, /, hue: float = 0.75, step: float = 0.0
 ) -> tuple[ColorTriplet, ...]:
-    """Create an array of spectral colors centered around a hue."""
+    """Create a color progression around the color wheel."""
     if not step:
-        step = 0.387
+        step = 386 / 999  # very long cycle with good contrast between colors
     return tuple(
         interpolate_color(
             step * i,
