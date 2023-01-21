@@ -787,20 +787,21 @@ class TestPMFStatistics:
     def test_auto_quantile(self) -> None:
         # Check breakpoints in uniform distributions.
         assert PMF(range(0)).auto_quantile == 1
-        assert PMF(range(1)).auto_quantile == 1
-        assert PMF(range(3)).auto_quantile == 1
-        assert PMF(range(4)).auto_quantile == 1
-        assert PMF(range(10)).auto_quantile == 2
+        assert PMF(range(6)).auto_quantile == 1
+        assert PMF(range(7)).auto_quantile == 2
+        assert PMF(range(14)).auto_quantile == 2
+        assert PMF(range(15)).auto_quantile == 4
+        assert PMF(range(18)).auto_quantile == 4
         assert PMF(range(19)).auto_quantile == 5
-        assert PMF(range(20)).auto_quantile == 5
+        assert PMF(range(100)).auto_quantile == 5
         # Check uneven distributions.
         assert (2 @ PMF(range(2))).auto_quantile == 1
         assert (2 @ PMF(range(3))).auto_quantile == 1
         assert (2 @ PMF(range(4))).auto_quantile == 2
-        assert (2 @ PMF(range(5))).auto_quantile == 2
-        assert (2 @ PMF(range(6))).auto_quantile == 3
+        assert (2 @ PMF(range(6))).auto_quantile == 2
+        assert (2 @ PMF(range(8))).auto_quantile == 4
         assert (2 @ PMF(range(10))).auto_quantile == 5
-        assert (2 @ PMF(range(20))).auto_quantile == 10
+        assert (2 @ PMF(range(20))).auto_quantile == 5
 
 
 class TestPMFOutput:
@@ -1344,33 +1345,35 @@ class TestMultisetMath:
 
 class TestQuantileName:
     def test_quantile_name(self) -> None:
-        assert quantile_name(0) == "0-quantiles"
-        assert quantile_name(2) == "halves"
-        assert quantile_name(4) == "quartiles"
-        assert quantile_name(5) == "quintiles"
-        assert quantile_name(10) == "deciles"
-        assert quantile_name(100) == "centiles"
+        assert quantile_name(0) == "0-quantile"
+        assert quantile_name(2) == "median"
+        assert quantile_name(4) == "quartile"
+        assert quantile_name(5) == "quintile"
+        assert quantile_name(10) == "decile"
+        assert quantile_name(100) == "centile"
 
-    def test_quantile_name_singular(self) -> None:
-        assert quantile_name(0, plural=False) == "0-quantile"
-        assert quantile_name(2, plural=False) == "half"
-        assert quantile_name(4, plural=False) == "quartile"
-        assert quantile_name(5, plural=False) == "quintile"
-        assert quantile_name(10, plural=False) == "decile"
-        assert quantile_name(100, plural=False) == "centile"
+    def test_quantile_name_plural(self) -> None:
+        assert quantile_name(0, plural=True) == "0-quantiles"
+        assert quantile_name(2, plural=True) == "medians"
+        assert quantile_name(4, plural=True) == "quartiles"
+        assert quantile_name(5, plural=True) == "quintiles"
+        assert quantile_name(10, plural=True) == "deciles"
+        assert quantile_name(100, plural=True) == "centiles"
+        assert quantile_name(2, kind=QK.GROUP, plural=True) == "halves"
+        assert quantile_name(2, kind=QK.FRACTION, plural=True) == "halves"
 
-    def test_quantile_name_cut(self) -> None:
-        assert quantile_name(0, kind=QK.CUT, plural=False) == "0-quantile"
-        assert quantile_name(2, kind=QK.CUT, plural=False) == "median"
-        assert quantile_name(4, kind=QK.CUT, plural=False) == "quartile"
-        assert quantile_name(5, kind=QK.CUT, plural=False) == "quintile"
-        assert quantile_name(10, kind=QK.CUT, plural=False) == "decile"
-        assert quantile_name(100, kind=QK.CUT, plural=False) == "centile"
+    def test_quantile_name_group(self) -> None:
+        assert quantile_name(0, kind=QK.GROUP) == "0-quantile"
+        assert quantile_name(2, kind=QK.GROUP) == "half"
+        assert quantile_name(4, kind=QK.GROUP) == "quartile"
+        assert quantile_name(5, kind=QK.GROUP) == "quintile"
+        assert quantile_name(10, kind=QK.GROUP) == "decile"
+        assert quantile_name(100, kind=QK.GROUP) == "centile"
 
     def test_quantile_name_fraction(self) -> None:
-        assert quantile_name(0, kind=QK.FRACTION) == "0-quantiles"
-        assert quantile_name(2, kind=QK.FRACTION) == "halves"
-        assert quantile_name(4, kind=QK.FRACTION) == "quarters"
-        assert quantile_name(5, kind=QK.FRACTION) == "fifths"
-        assert quantile_name(10, kind=QK.FRACTION) == "tenths"
-        assert quantile_name(100, kind=QK.FRACTION) == "hundredths"
+        assert quantile_name(0, kind=QK.FRACTION) == "0-quantile"
+        assert quantile_name(2, kind=QK.FRACTION) == "half"
+        assert quantile_name(4, kind=QK.FRACTION) == "quarter"
+        assert quantile_name(5, kind=QK.FRACTION) == "fifth"
+        assert quantile_name(10, kind=QK.FRACTION) == "tenth"
+        assert quantile_name(100, kind=QK.FRACTION) == "hundredth"

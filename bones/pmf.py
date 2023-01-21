@@ -458,15 +458,16 @@ class PMF(Collection[ET_co]):
     @functools.cached_property
     def auto_quantile(self) -> int:
         """Recommend a reasonable quantile size."""
-        # TODO: tune this down a bit
         qmax = min(
             # No events wider than a whole quantile.
             self.total // (self.modal_weight + 1),
             # At least three events between each cut.
             (len(self) + 1) // 4,
+            # No more than 5 by default.
+            5,
         )
-        print(f"{qmax=}")
-        return (qmax or 1) if qmax < 5 else 5 if qmax < 10 else 10
+        # Return the best fit out of 1, 2, 4, 5.
+        return (qmax or 1) if qmax != 3 else 2
 
     def quantile_groups(self, n: int | Auto = Ellipsis, /) -> tuple[Self, ...]:
         """Partition the PMF into equally likely groups."""
@@ -599,10 +600,10 @@ class PMF(Collection[ET_co]):
                     label=label,
                 )
 
-            qname = quantile_name(nq)
             if nq % 2 == 0:
                 legend.append(quantile_legend(nq // 2, quantile_name(2)))
             if 3 <= nq:
+                qname = quantile_name(nq)
                 legend.append(quantile_legend(1, _t("first {}".format(qname))))
                 legend.append(quantile_legend(nq - 1, _t("last {}".format(qname))))
             # Color each event.
