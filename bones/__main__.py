@@ -1,47 +1,56 @@
-from fractions import Fraction
+"""bones.__main__: utility script for dice analysis.
 
-import lea
-from lea.leaf import dice
+usage: bones [args...]
+       python -m bones [args...]
 
-import matplotlib
-from matplotlib import pyplot
+TODO: options, arguments, and usage notes
+"""
 
-from .warhammer import chain_rolls
+__author__ = "Bradd Szonye <bszonye@gmail.com>"
+
+__all__ = ["main"]
+
+import sys
+from collections.abc import Iterable, Sequence
+from importlib import import_module
+from types import EllipsisType
+
+from .pmf import PMF
 
 
-def main():
-    # attacks
-    attacks = dice(1)
-    # hit: 4+ exploding 6s
-    hit = (0, Fraction(3, 6)), (1, Fraction(2, 6)), (2, Fraction(1, 6))
-    # wound: 4+, TODO: 1 MW instead on 6
-    wound = (0, Fraction(1, 2)), (1, Fraction(1, 2))
-    # rend & damage: TBD
-    # rend = 0
-    # damage = 1
+def eval_demo(
+    expressions: Iterable[str], *, interactive: bool | EllipsisType = Ellipsis
+) -> None:
+    """Evaluate expressions from the command line."""
+    from . import __all__ as exports, __name__ as package_name
 
-    hits = chain_rolls(attacks, lea.pmf(hit))
-    print("hits")
-    print(hits)
-    wounds = chain_rolls(hits, lea.pmf(wound))
-    print("wounds")
-    print(wounds)
+    package = import_module(package_name)
+    bones_modules = ["color", "pmf", "roll", "warhammer"]
+    stdlib_modules = ["math", "operator"]
 
-    # demo with custom plot
-    pyplot.ion()
-    domain = hits.support
-    ratio = hits.ps
-    pyplot.bar(range(len(domain)), ratio, tick_label=domain, align="center")
-    pyplot.ylabel("Probability")
-    pyplot.title("Hits")
-    pyplot.show(block=True)
+    g = {package_name: package}
+    g |= {name: import_module(f".{name}", package_name) for name in bones_modules}
+    g |= {name: import_module(name) for name in stdlib_modules}
+    g |= {name: getattr(package, name) for name in exports}
 
-    # demo with lea.plot()
-    hits.plot(title="Wounds", color="red")
-    print("interactive:", pyplot.isinteractive())
-    pyplot.show(block=True)
-    print(matplotlib.backends.backend)
+    if interactive is Ellipsis:  # autodetect based on isatty
+        interactive = sys.__stdout__.isatty()
+
+    for expression in expressions:
+        v = eval(expression, g)
+        if isinstance(v, PMF):
+            v.plot(console=not interactive)
+        elif v is not None:
+            print(v)
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """Script entry point. Command-line interface TBD."""
+    if argv is None:  # pragma: no cover
+        argv = sys.argv
+    eval_demo(argv[1:])
 
 
 if __name__ == "__main__":
     main()
+    sys.exit(0)

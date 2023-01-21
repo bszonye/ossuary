@@ -1,30 +1,153 @@
-[tool.poetry]
+[build-system]
+requires = ["hatchling", "hatch-vcs", "hatch-fancy-pypi-readme"]
+build-backend = "hatchling.build"
+
+[project]
 name = "bones"
-version = "0.0.0"
+dynamic = ["version", "readme"]
 description = "dice analysis toolkit"
-authors = ["Bradd Szonye <bszonye@gmail.com>"]
-readme = "README.md"
-homepage = "https://github.com/bszonye/bones"
-repository = "https://github.com/bszonye/bones"
+authors = [
+    {name = "Bradd Szonye", email = "bszonye@gmail.com"},
+]
+license = {text = "MIT"}
 keywords = ["dice", "probability"]
-packages = [
-    { include = "bones" },
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    # "Development Status :: 3 - Alpha",
+    # "Development Status :: 4 - Beta",
+    # "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+]
+requires-python = ">=3.11.0rc2"
+dependencies = [
 ]
 
-[tool.poetry.scripts]
+[project.optional-dependencies]
+plot = [
+    "matplotlib",
+]
+gtkplot = [
+    "bones[plot]",
+    "PyGObject",
+]
+
+[project.scripts]
 bones = "bones.__main__:main"
 
-[tool.poetry.dependencies]
-python = "^3.11"
-lea = "^3.4.2"
-matplotlib = "^3.6.2"
-PyGObject = "^3.42.2"
+[project.urls]
+Homepage = "https://github.com/bszonye/bones"
+Repository = "https://github.com/bszonye/bones"
+Documentation = "https://github.com/bszonye/bones"
+# Changelog = "https://github.com/bszonye/bones/TODO"
 
-[tool.poetry.group.dev.dependencies]
-flake8 = "^5.0.4"
-black = "^22.10.0"
-pytest = "^7.2.0"
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+fragments = [
+    { path = "README.md", end-before = "<!-- head -->" },
+    { path = "README.md", start-after = "<!-- cut -->",  end-before = "<!-- cut -->" },
+]
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.hatch.build]
+only-packages = true
+
+[tool.hatch.build.hooks.vcs]
+version-file = "bones/_version.py"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0"
+
+[tool.hatch.envs.default]
+python = "python3.11"
+dependencies = [
+    "pytest",
+    "pytest-cov",
+]
+[tool.hatch.envs.default.scripts]
+cov = "pytest {args}"
+no-cov = "cov --no-cov {args}"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["311"]
+extras = ["core", "plot", "gtkplot"]
+
+[tool.hatch.envs.test.overrides]
+matrix.extras.features = [
+    { value = "plot", if = ["plot"] },
+    { value = "gtkplot", if = ["gtkplot"] },
+]
+
+[tool.pdm.build]
+includes = ["bones"]
+
+[tool.pdm.dev-dependencies]
+# The project also uses several tools that don't depend on installation
+# into the project environment (use pipx instead):
+
+# pipx install black
+# pipx install flake8
+# pipx inject flake8 flake8-bugbear flake8-pyi
+# pipx install isort
+# pipx install pre-commit
+# pipx install pydocstyle
+
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
+[tool.black]
+line-length = 86
+
+[tool.coverage.report]
+exclude_lines = [
+    'pragma: no cover',
+    '@overload',
+    'if TYPE_CHECKING:',
+    'if __name__ == .__main__.:',
+    'raise NotImplementedError',
+    'return \.\.\.  # type: ignore',
+]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+omit = [
+    "bones/_version.py",
+]
+
+
+[tool.isort]
+profile = "black"
+line_length = 86
+combine_as_imports = true
+order_by_type = false
+skip_gitignore = true
+
+[tool.mypy]
+mypy_path = "stubs"
+files = "."
+strict = true
+warn_no_return = true
+warn_unreachable = true
+python_executable = ".venv/bin/python"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+include = ["bones", "tests"]
+exclude = ["**/node_modules", "**/__pycache__", "**/.*"]
+stubPath = "stubs"
+pythonVersion = "3.11"
+pythonPlatform = "All"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+addopts = "--cov=bones --cov-report=term-missing:skip-covered --cov-report=html"
+filterwarnings = [
+    'error',
+    # 'ignore::UserWarning',
+    'ignore:DynamicImporter:ImportWarning',
+    'ignore:Gtk\.Window\.set_wmclass:DeprecationWarning',
+]

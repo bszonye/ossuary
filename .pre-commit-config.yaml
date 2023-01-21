@@ -1,0 +1,39 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+default_language_version:
+  python: python3.11
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.4.0
+  hooks:
+   - id: check-added-large-files
+   - id: check-case-conflict
+   - id: check-toml
+   - id: end-of-file-fixer
+   - id: mixed-line-ending
+     args: [--fix=no]
+   - id: no-commit-to-branch
+- repo: https://github.com/pycqa/flake8
+  rev: 6.0.0
+  hooks:
+  - id: flake8
+    additional_dependencies: [
+      "flake8-bugbear ~= 22.12.6",
+      "flake8-pyi ~= 22.11.0",
+    ]
+- repo: https://github.com/psf/black
+  rev: 22.12.0
+  hooks:
+  - id: black
+    language_version: python3.11
+    args: ["--check"]
+- repo: https://github.com/pycqa/isort
+  rev: 5.11.4
+  hooks:
+  - id: isort
+    name: isort (python)
+    args: ["--check"]
+- repo: https://github.com/pycqa/pydocstyle
+  rev: 6.2.2
+  hooks:
+  - id: pydocstyle
