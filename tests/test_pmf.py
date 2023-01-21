@@ -803,6 +803,50 @@ class TestPMFStatistics:
         assert (2 @ PMF(range(10))).auto_quantile == 5
         assert (2 @ PMF(range(20))).auto_quantile == 5
 
+    def test_quantile_groups_whole(self) -> None:
+        pets = ("cat", "dog", "bird", "fish", "snake")
+        pmf = PMF(pets)
+        group0 = pmf.quantile_groups(0)
+        group1 = pmf.quantile_groups(1)
+
+        # The 0- and 1-quantile groups just wrap self in a tuple.
+        assert len(group0) == len(group1) == 1
+        assert group0[0] is pmf
+        assert group1[0] is pmf
+
+    def test_quantile_groups_median(self) -> None:
+        pets = ("cat", "dog", "bird", "fish", "snake")
+        pmf = PMF(pets)
+        h1, h2 = pmf.quantile_groups(2)
+        assert h1.mapping == {"cat": 2, "dog": 2, "bird": 1}
+        assert h2.mapping == {"bird": 1, "fish": 2, "snake": 2}
+
+    def test_quantile_groups_narrow(self) -> None:
+        pets = ("cat", "dog", "goat")
+        pmf = PMF(pets)
+        q1, q2, q3, q4 = pmf.quantile_groups(4)
+        assert q1.mapping == {"cat": 3}
+        assert q2.mapping == {"cat": 1, "dog": 2}
+        assert q3.mapping == {"dog": 2, "goat": 1}
+        assert q4.mapping == {"goat": 3}
+
+    def test_quantile_groups_cache(self) -> None:
+        pets = ("cat", "dog", "bird", "fish", "snake")
+        pmf = PMF(pets)
+        # q < 2 doesn't use the cache.
+        group2 = pmf.quantile_groups(2)
+        cache2 = pmf.quantile_groups(2)
+        assert cache2 is group2
+        assert len(group2) == len(cache2) == 2
+        group3 = pmf.quantile_groups(3)
+        cache3 = pmf.quantile_groups(3)
+        assert cache3 is group3
+        assert len(group3) == len(cache3) == 3
+
+    def test_quantile_groups_errors(self) -> None:
+        with pytest.raises(ValueError):
+            PMF[Any]().quantile_groups(-1)
+
 
 class TestPMFOutput:
     def test_format_pairs_empty(self) -> None:

@@ -615,8 +615,9 @@ class PMF(Collection[ET_co]):
                     continue
                 # Color events from blue to red to green.
                 groups = [j for j in range(nq) if domain[i] in quantiles[j]]
-                bcolor.append(colors[groups[0]])
-                hcolor.append(colors[groups[-1]])
+                stripe = i % -2  # alternate 0 & -1 so adjacent stripes align
+                bcolor.append(colors[groups[stripe]])
+                hcolor.append(colors[groups[-1 - stripe]])
 
         # Derive edge color and hatch pattern from the main bar colors.
         ecolor = [adjust_lightness(0.65, c) for c in bcolor]
