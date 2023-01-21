@@ -40,13 +40,13 @@ Roll 4d6 and add the highest 3 dice.
 ```
 bones 'Dice.NdX(4, d6, kh=3).sum()'
 ```
-Take the middle die out of 3d20.
+Take the middle die out of three d20 rolls.
 ```
 bones 'Dice.NdX(3, d20, km=1).sum()'
 ```
-Graph 9d6 with results partitioned into deciles.
+Graph 12d6 with the results partitioned by deciles.
 ```
-bones '(9 @ d6).plot(q=10)'
+bones '(12 @ d6).plot(q=10)'
 ```
 
 <!-- cut -->
