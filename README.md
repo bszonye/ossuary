@@ -1,4 +1,4 @@
-# bones 🦴 dice analysis toolkit
+# bones 💀 dice analysis toolkit
 <!-- head -->
 
 [![pdm-managed](https://img.shields.io/badge/pdm-managed-blueviolet)](https://pdm.fming.dev)
@@ -8,7 +8,39 @@
 [![Types: MyPy](https://img.shields.io/badge/types-mypy-blue.svg)](https://github.com/python/mypy)
 
 <!-- cut -->
-TODO
+A Python package for analyzing dice and other randomizers.
+
+Features:
+
+* Exact values for probability computations.
+* Statistical analysis (mean, mode, standard deviation).
+* Graph plotting with visualization of median and other quantiles.
+* Support for symbolic as well as numeric dice.
+* Command-line evaluator for ease of use.
+* Python API for extensibility.
+
+Installation
+------------
+```
+pip install bones
+pip install matplotlib  # optional graphing support
+```
+
+Commands
+--------
+```
+# Roll a die.
+bones d6
+# Roll d4+1 three times and add the results.
+bones '3 @ (d4+1)'
+# Roll 4d6 and add the highest 3 dice.
+bones 'Dice.NdX(4, d6, kh=3).sum()'
+# Take the middle die out of 3d20.
+bones 'Dice.NdX(3, d20, km=1).sum()'
+# Graph 9d6 with results partitioned into deciles.
+bones '(9 @ d6).plot(q=10)'
+```
+
 <!-- cut -->
 ---
 💀 _fin_
