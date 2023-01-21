@@ -28,16 +28,24 @@ pip install matplotlib  # optional graphing support
 
 Commands
 --------
+Roll a die.
 ```
-# Roll a die.
 bones d6
-# Roll d4+1 three times and add the results.
+```
+Roll d4+1 three times and add the results.
+```
 bones '3 @ (d4+1)'
-# Roll 4d6 and add the highest 3 dice.
+```
+Roll 4d6 and add the highest 3 dice.
+```
 bones 'Dice.NdX(4, d6, kh=3).sum()'
-# Take the middle die out of 3d20.
+```
+Take the middle die out of 3d20.
+```
 bones 'Dice.NdX(3, d20, km=1).sum()'
-# Graph 9d6 with results partitioned into deciles.
+```
+Graph 9d6 with results partitioned into deciles.
+```
 bones '(9 @ d6).plot(q=10)'
 ```
 
