@@ -892,8 +892,8 @@ class TestPMFOutput:
             patch("matplotlib.axes.Axes.set_xlabel") as mock_set_xlabel,
             patch("matplotlib.pyplot.show") as mock_show,
         ):
-            pmf.plot(q=1, stats=True)
-            pmf.plot(q=1, stats=False)
+            pmf.plot(q=5, stats=True)
+            pmf.plot(q=5, stats=False)
 
         # This PMF shouldn't show stats either way.
         mock_set_xlabel.assert_not_called()
