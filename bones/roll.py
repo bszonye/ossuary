@@ -4,8 +4,6 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 __all__ = [
     "Dice",
-    "DiceTuple",
-    "DiceTuplePMF",
     "Die",
     "d",
     "d00",
@@ -28,30 +26,29 @@ import functools
 import itertools
 import math
 from collections import Counter
-from collections.abc import Collection, Iterable, Iterator
+from collections.abc import Iterable, Iterator
 from typing import cast, overload, Self, TypeVar
 
 from .pmf import multiset_perm, PMF, Weight
 
 ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
+_T = TypeVar("_T")
 
 
 class Die(PMF[ET_co]):
     """Model for rolling a die."""
 
-    @overload
-    def __init__(self: "Die[int]", /, *, reverse: bool = False) -> None:  # noqa: D107
-        ...
-
+    # Note: The ET_co overload needs to come first for mypy to infer
+    # types correctly for Die.from_pairs and similar classmethods.
     @overload
     def __init__(
-        self: "Die[int]", faces: int, /, *, reverse: bool = False
+        self, faces: Iterable[ET_co], /, *, reverse: bool = False
     ) -> None:  # noqa: D107
         ...
 
     @overload
     def __init__(
-        self, faces: Iterable[ET_co], /, *, reverse: bool = False
+        self: "Die[int]", faces: int = ..., /, *, reverse: bool = False
     ) -> None:  # noqa: D107
         ...
 
@@ -121,18 +118,7 @@ d000 = d(1000) - 1  # D1000 counted from zero.
 dF = d(3) - 2  # Fate/Fudge dice.
 
 
-class Dice(Collection[ET_co]):
-    """Model for dice rolls and dice pool mechanics."""
-
-    # TODO
-
-
-# TODO: sunset DiceTuplePMF
-DiceIterable = Iterable[int]
-DiceTuple = tuple[int, ...]
-
-
-class DiceTuplePMF(PMF[DiceTuple]):
+class Dice(PMF[tuple[ET_co, ...]]):
     """Probability mass function for analyzing raw dice rolls.
 
     Use this when you need to analyze or select specific dice out of
@@ -142,17 +128,18 @@ class DiceTuplePMF(PMF[DiceTuple]):
     """
 
     @classmethod
-    def NdX_select(
+    def NdX(
         cls,
-        n: int = 1,
-        die: Die[int] = d6,
+        n: int,
+        die: Die[_T],
+        /,
         *,
         dh: int = 0,
         dl: int = 0,
         kh: int = 0,
         kl: int = 0,
         km: int = 0,
-    ) -> Self:
+    ) -> "Dice[_T]":
         """Create a PMF for NdX, keeping the highest N of M dice."""
         # Validate & initialize parameters.
         if min(dh, dl, kh, kl, km) < 0:
@@ -166,7 +153,7 @@ class DiceTuplePMF(PMF[DiceTuple]):
         leave = max(n - dh - dl, 0)
         keep = min(keep, leave) if keep else leave
         if keep <= 0:
-            return cls()
+            return cast(Dice[_T], cls())
 
         # Convert the keep selector to the equivalent drop selectors by
         # adding any extra dice to dl or dh as appropriate.  In the case
@@ -193,7 +180,7 @@ class DiceTuplePMF(PMF[DiceTuple]):
         # preserve the input order and to accommodate non-comparable die
         # values.  For example, this enumerates three six-sided dice
         # numerically from (0, 0, 0) to (5, 5, 5).
-        pweight: dict[DiceTuple, Weight] = {}
+        pweight: dict[tuple[_T, ...], Weight] = {}
         for icombo in itertools.combinations_with_replacement(range(nfaces), keep):
             # Get the range of face numbers.
             low = icombo[0]
@@ -248,13 +235,24 @@ class DiceTuplePMF(PMF[DiceTuple]):
             # Translate ordinals to face values and base weights.
             vcombo = tuple(faces[p] for p in icombo)
             pweight[vcombo] = weight
-        return cls(pweight)
+        return Dice.from_pairs(pweight.items())
 
-    def sum(self) -> Die[int]:
+    def sum(self) -> Die[ET_co]:
         """Sum the dice in each roll and return the resulting PMF."""
-        weights: dict[int, Weight] = {}
+        weights: dict[ET_co, Weight] = {}
         for combo, count in self.mapping.items():
-            total = sum(tuple(combo))
+            total: ET_co
+            match combo:
+                case (str(), *_):
+                    # Use join on strings.
+                    total = "".join(combo)  # type: ignore
+                case (float(), *_):
+                    # Use fsum on floats.
+                    total = math.fsum(combo)  # type: ignore
+                case _:
+                    # Use sum on everything else.
+                    total = sum(combo)  # type: ignore
             weights.setdefault(total, 0)
             weights[total] += count
-        return Die.from_pairs(weights.items())
+        pairs: Iterable[tuple[ET_co, Weight]] = weights.items()
+        return Die.from_pairs(pairs)
