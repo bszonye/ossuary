@@ -6,7 +6,7 @@ import pytest
 
 import bones.roll
 from bones.pmf import PMF
-from bones.roll import d, d00, d000, d3, d6, d20, dF, Die
+from bones.roll import d, d00, d000, d3, d6, d20, dF, Dice, Die
 
 
 class TestDieInit:
@@ -82,3 +82,69 @@ class TestDieObjects:
         assert d00.support == tuple(range(100))
         assert d000.support == tuple(range(1000))
         assert dF.support == (-1, 0, +1)
+
+
+class TestDiceNdX:
+    def test_ndx(self) -> None:
+        dice = Dice.NdX(3, d6)
+        assert dice.mapping == d6.combination_weights(3)
+        assert dice.sum().mapping == (3 @ d6).mapping
+
+    def test_ndx_keep_high(self) -> None:
+        die = Dice.NdX(3, d3, kh=1).sum()
+        assert die.mapping == {1: 1, 2: 7, 3: 19}
+
+    def test_ndx_keep_low(self) -> None:
+        die = Dice.NdX(3, d3, kl=1).sum()
+        assert die.mapping == {1: 19, 2: 7, 3: 1}
+
+    def test_ndx_keep_mid(self) -> None:
+        die = Dice.NdX(3, d3, km=1).sum()
+        assert die.mapping == {1: 7, 2: 13, 3: 7}
+
+    def test_ndx_drop_all(self) -> None:
+        # Drop all the dice.
+        dhempty = Dice.NdX(3, d6, dh=3)
+        dlempty = Dice.NdX(3, d6, dl=3)
+        assert len(dhempty) == len(dlempty) == 0
+        # Also OK to drop more than rolled.
+        dhempty = Dice.NdX(1, d20, dh=3)
+        dlempty = Dice.NdX(1, d20, dl=3)
+        assert len(dhempty) == len(dlempty) == 0
+
+    def test_errors(self) -> None:
+        # Negative selectors.
+        with pytest.raises(ValueError):
+            Dice.NdX(1, d6, dh=-1)
+        with pytest.raises(ValueError):
+            Dice.NdX(1, d6, dl=-1)
+        with pytest.raises(ValueError):
+            Dice.NdX(1, d6, kh=-1)
+        with pytest.raises(ValueError):
+            Dice.NdX(1, d6, kl=-1)
+        with pytest.raises(ValueError):
+            Dice.NdX(1, d6, km=-1)
+        # More than one keep selector.
+        with pytest.raises(ValueError):
+            Dice.NdX(1, d6, kh=1, kl=1)
+        with pytest.raises(ValueError):
+            Dice.NdX(1, d6, kh=1, km=1)
+        with pytest.raises(ValueError):
+            Dice.NdX(1, d6, kl=1, km=1)
+
+
+class TestDiceSum:
+    def test_sum_int(self) -> None:
+        combos = [(1, 2, 3), (4, 5, 6)]
+        dice = Dice(combos)
+        assert dice.sum().domain == (6, 15)
+
+    def test_sum_float(self) -> None:
+        combos = [(1.0, 2.0, 3.0), (4.0, 5.0, 6.0)]
+        dice = Dice(combos)
+        assert dice.sum().domain == (6.0, 15.0)
+
+    def test_sum_str(self) -> None:
+        combos = [("goat", "dog", "cat"), ("bird", "snake", "fish")]
+        dice = Dice(combos)
+        assert dice.sum().domain == ("goatdogcat", "birdsnakefish")

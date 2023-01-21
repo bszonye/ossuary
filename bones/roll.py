@@ -153,7 +153,7 @@ class Dice(PMF[tuple[ET_co, ...]]):
         leave = max(n - dh - dl, 0)
         keep = min(keep, leave) if keep else leave
         if keep <= 0:
-            return cast(Dice[_T], cls())
+            return cast(Dice[_T], cls).from_pairs(())
 
         # Convert the keep selector to the equivalent drop selectors by
         # adding any extra dice to dl or dh as appropriate.  In the case
