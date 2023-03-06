@@ -1,4 +1,4 @@
-# oddly 🎲 probability analysis toolkit
+# ossuary 🎲 probability analysis toolkit
 <!-- head -->
 
 [![pdm-managed](https://img.shields.io/badge/pdm-managed-blueviolet)](https://pdm.fming.dev)
@@ -22,7 +22,7 @@ Features:
 Installation
 ------------
 ```
-pip install oddly
+pip install ossuary
 pip install matplotlib  # optional graphing support
 ```
 
@@ -30,23 +30,23 @@ Commands
 --------
 Roll a die.
 ```
-oddly d6
+ossuary d6
 ```
 Roll d4+1 three times and add the results.
 ```
-oddly '3 @ (d4+1)'
+ossuary '3 @ (d4+1)'
 ```
 Roll 4d6 and add the highest 3 dice.
 ```
-oddly 'Dice.NdX(4, d6, kh=3).sum()'
+ossuary 'Dice.NdX(4, d6, kh=3).sum()'
 ```
 Take the middle die out of three d20 rolls.
 ```
-oddly 'Dice.NdX(3, d20, km=1).sum()'
+ossuary 'Dice.NdX(3, d20, km=1).sum()'
 ```
 Graph 12d6 with the results partitioned by deciles.
 ```
-oddly '(12 @ d6).plot(q=10)'
+ossuary '(12 @ d6).plot(q=10)'
 ```
 
 <!-- cut -->

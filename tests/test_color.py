@@ -1,4 +1,4 @@
-"""Unit tests for the oddly.pmf module."""
+"""Unit tests for the color module."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
@@ -6,7 +6,7 @@ import colorsys
 
 from pytest import approx  # pyright: ignore[reportUnknownVariableType]
 
-from oddly.color import (
+from ossuary.color import (
     adjust_lightness,
     clip,
     color_array,

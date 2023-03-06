@@ -1,4 +1,4 @@
-"""oddly.pmf: probability mass function type."""
+"""pmf: probability mass function type."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
@@ -20,6 +20,8 @@ import itertools
 import math
 import numbers
 import operator
+import os
+import sys
 import types
 import typing
 from collections import Counter
@@ -549,7 +551,7 @@ class PMF(Collection[ET_co]):
         scale: _Real = 100,
         stats: bool = True,
         sformat: str = ".2f",
-        window_title: str = "oddly",
+        window_title: str = "",
         block: bool = True,
         console: bool = False,
     ) -> None:
@@ -628,6 +630,8 @@ class PMF(Collection[ET_co]):
 
         # Set up plot.
         fig, ax = pyplot.subplots()
+        if not window_title:
+            window_title = os.path.basename(sys.argv[0])
         fig.canvas.manager.set_window_title(window_title)
 
         # Main bar colors.
