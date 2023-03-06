@@ -1,3 +1,3 @@
-"""Unit tests for the bones.hammer module."""
+"""Unit tests for the oddly.hammer module."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"

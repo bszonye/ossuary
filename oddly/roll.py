@@ -1,4 +1,4 @@
-"""bones.roll: dice roll analysis."""
+"""oddly.roll: dice roll analysis."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 

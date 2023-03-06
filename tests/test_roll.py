@@ -1,12 +1,12 @@
-"""Unit tests for the bones.roll module."""
+"""Unit tests for the oddly.roll module."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 import pytest
 
-import bones.roll
-from bones.pmf import PMF
-from bones.roll import d, d00, d000, d3, d6, d20, dF, Dice, Die
+import oddly.roll
+from oddly.pmf import PMF
+from oddly.roll import d, d00, d000, d3, d6, d20, dF, Dice, Die
 
 
 class TestDieInit:
@@ -66,7 +66,7 @@ class TestDieObjects:
         die = d(size)
         assert isinstance(die, PMF)
         # Verify that there's a corresponding module variable.
-        mdie: PMF[int] = getattr(bones.roll, f"d{size}")
+        mdie: PMF[int] = getattr(oddly.roll, f"d{size}")
         assert isinstance(mdie, PMF)
         assert die.mapping == mdie.mapping
         # Test the PMF properties.

@@ -1,4 +1,4 @@
-"""bones.draw: bag & deck draw analysis."""
+"""oddly.draw: bag & deck draw analysis."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 

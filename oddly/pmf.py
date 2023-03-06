@@ -1,4 +1,4 @@
-"""bones.pmf: probability mass function type."""
+"""oddly.pmf: probability mass function type."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
@@ -549,7 +549,7 @@ class PMF(Collection[ET_co]):
         scale: _Real = 100,
         stats: bool = True,
         sformat: str = ".2f",
-        window_title: str = "bones",
+        window_title: str = "oddly",
         block: bool = True,
         console: bool = False,
     ) -> None:

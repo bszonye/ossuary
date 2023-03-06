@@ -3,7 +3,7 @@ requires = ["hatchling", "hatch-vcs", "hatch-fancy-pypi-readme"]
 build-backend = "hatchling.build"
 
 [project]
-name = "bones"
+name = "oddly"
 dynamic = ["version", "readme"]
 description = "dice analysis toolkit"
 authors = [
@@ -28,18 +28,18 @@ plot = [
     "matplotlib",
 ]
 gtkplot = [
-    "bones[plot]",
+    "oddly[plot]",
     "PyGObject",
 ]
 
 [project.scripts]
-bones = "bones.__main__:main"
+oddly = "oddly.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/bszonye/bones"
-Repository = "https://github.com/bszonye/bones"
-Documentation = "https://github.com/bszonye/bones"
-# Changelog = "https://github.com/bszonye/bones/TODO"
+Homepage = "https://github.com/bszonye/oddly"
+Repository = "https://github.com/bszonye/oddly"
+Documentation = "https://github.com/bszonye/oddly"
+# Changelog = "https://github.com/bszonye/oddly/TODO"
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]
 content-type = "text/markdown"
@@ -52,7 +52,7 @@ fragments = [
 only-packages = true
 
 [tool.hatch.build.hooks.vcs]
-version-file = "bones/_version.py"
+version-file = "oddly/_version.py"
 
 [tool.hatch.version]
 source = "vcs"
@@ -79,7 +79,7 @@ matrix.extras.features = [
 ]
 
 [tool.pdm.build]
-includes = ["bones"]
+includes = ["oddly"]
 
 [tool.pdm.dev-dependencies]
 # The project also uses several tools that don't depend on installation
@@ -92,6 +92,9 @@ includes = ["bones"]
 # pipx install pre-commit
 # pipx install pydocstyle
 
+dev = [
+    "pip",
+]
 test = [
     "pytest",
     "pytest-cov",
@@ -114,7 +117,7 @@ exclude_lines = [
 branch = true
 parallel = true
 omit = [
-    "bones/_version.py",
+    "oddly/_version.py",
 ]
 
 
@@ -135,7 +138,7 @@ python_executable = ".venv/bin/python"
 
 [tool.pyright]
 typeCheckingMode = "strict"
-include = ["bones", "tests"]
+include = ["oddly", "tests"]
 exclude = ["**/node_modules", "**/__pycache__", "**/.*"]
 stubPath = "stubs"
 pythonVersion = "3.11"
@@ -144,7 +147,7 @@ venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
-addopts = "--cov=bones --cov-report=term-missing:skip-covered --cov-report=html"
+addopts = "--cov=oddly --cov-report=term-missing:skip-covered --cov-report=html"
 filterwarnings = [
     'error',
     # 'ignore::UserWarning',

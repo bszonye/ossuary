@@ -1,7 +1,7 @@
-"""bones.__main__: utility script for dice analysis.
+"""oddly.__main__: utility script for dice analysis.
 
-usage: bones [args...]
-       python -m bones [args...]
+usage: oddly [args...]
+       python -m oddly [args...]
 
 TODO: options, arguments, and usage notes
 """
@@ -25,11 +25,11 @@ def eval_demo(
     from . import __all__ as exports, __name__ as package_name
 
     package = import_module(package_name)
-    bones_modules = ["color", "pmf", "roll", "hammer"]
+    oddly_modules = ["color", "pmf", "roll", "hammer"]
     stdlib_modules = ["math", "operator"]
 
     g = {package_name: package}
-    g |= {name: import_module(f".{name}", package_name) for name in bones_modules}
+    g |= {name: import_module(f".{name}", package_name) for name in oddly_modules}
     g |= {name: import_module(name) for name in stdlib_modules}
     g |= {name: getattr(package, name) for name in exports}
 

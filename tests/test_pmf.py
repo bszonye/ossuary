@@ -1,4 +1,4 @@
-"""Unit tests for the bones.pmf module."""
+"""Unit tests for the oddly.pmf module."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
@@ -15,7 +15,7 @@ from unittest.mock import patch
 import pytest
 from pytest import approx  # pyright: ignore[reportUnknownVariableType]
 
-from bones.pmf import multiset_comb, multiset_perm, PMF, QK, quantile_name, Weight
+from oddly.pmf import multiset_comb, multiset_perm, PMF, QK, quantile_name, Weight
 
 ET_co = TypeVar("ET_co", covariant=True)  # Covariant event type.
 _T = TypeVar("_T")

@@ -1,4 +1,4 @@
-# bones 💀 dice analysis toolkit
+# oddly 🎲 probability analysis toolkit
 <!-- head -->
 
 [![pdm-managed](https://img.shields.io/badge/pdm-managed-blueviolet)](https://pdm.fming.dev)
@@ -22,7 +22,7 @@ Features:
 Installation
 ------------
 ```
-pip install bones
+pip install oddly
 pip install matplotlib  # optional graphing support
 ```
 
@@ -30,23 +30,23 @@ Commands
 --------
 Roll a die.
 ```
-bones d6
+oddly d6
 ```
 Roll d4+1 three times and add the results.
 ```
-bones '3 @ (d4+1)'
+oddly '3 @ (d4+1)'
 ```
 Roll 4d6 and add the highest 3 dice.
 ```
-bones 'Dice.NdX(4, d6, kh=3).sum()'
+oddly 'Dice.NdX(4, d6, kh=3).sum()'
 ```
 Take the middle die out of three d20 rolls.
 ```
-bones 'Dice.NdX(3, d20, km=1).sum()'
+oddly 'Dice.NdX(3, d20, km=1).sum()'
 ```
 Graph 12d6 with the results partitioned by deciles.
 ```
-bones '(12 @ d6).plot(q=10)'
+oddly '(12 @ d6).plot(q=10)'
 ```
 
 <!-- cut -->
