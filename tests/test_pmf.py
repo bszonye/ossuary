@@ -895,6 +895,22 @@ class TestPMFOutput:
         assert cap.out == "1  50.00\n2  25.00\n3  25.00\n"
         assert cap.err == ""
 
+    def test_plot_empty(self) -> None:
+        if importlib.util.find_spec("matplotlib") is None:
+            return  # OK, ignore this test in a non-plot environment.
+
+        pmf = PMF[Any]()
+        with (
+            patch("matplotlib.axes.Axes.bar") as mock_bar,
+            patch("matplotlib.axes.Axes.bar_label") as mock_bar_label,
+            patch("matplotlib.pyplot.show") as mock_show,
+        ):
+            pmf.plot(q=1)
+
+        assert mock_bar.call_count == 2
+        mock_bar_label.assert_called_once()
+        mock_show.assert_called_once_with(block=True)
+
     def test_plot_ungrouped(self) -> None:
         if importlib.util.find_spec("matplotlib") is None:
             return  # OK, ignore this test in a non-plot environment.
