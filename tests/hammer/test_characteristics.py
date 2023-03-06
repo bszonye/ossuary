@@ -4,8 +4,8 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 import pytest
 
+from bones.hammer import RandomizableValue
 from bones.roll import d6
-from bones.warhammer import RandomizableValue
 
 
 class TestRandomizableValueFactory:

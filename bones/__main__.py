@@ -25,7 +25,7 @@ def eval_demo(
     from . import __all__ as exports, __name__ as package_name
 
     package = import_module(package_name)
-    bones_modules = ["color", "pmf", "roll", "warhammer"]
+    bones_modules = ["color", "pmf", "roll", "hammer"]
     stdlib_modules = ["math", "operator"]
 
     g = {package_name: package}

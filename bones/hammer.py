@@ -1,4 +1,4 @@
-"""bones.warhammer: dice analysis for Warhammer games."""
+"""bones.hammer: dice analysis for Warhammer games."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
