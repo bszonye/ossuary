@@ -127,7 +127,7 @@ version = "3.42.2"
 requires_python = ">=3.6, <4"
 summary = "Python bindings for GObject Introspection"
 dependencies = [
-    "pycairo>=1.16.0",
+    "pycairo<2.0,>=1.16",
 ]
 
 [[package]]
@@ -184,7 +184,7 @@ summary = "A lil' TOML parser"
 
 [metadata]
 lock_version = "4.1"
-content_hash = "sha256:b2d5ca6f0153ebd0ca7d9bd4cb994dc320fa06d2525589e8e31ec2a1e01175d3"
+content_hash = "sha256:11ca4eb94bbf0ff2cedd86b6824dbeb1fea82330d3ae3ef955d3077049f86b50"
 
 [metadata.files]
 "attrs 22.2.0" = [

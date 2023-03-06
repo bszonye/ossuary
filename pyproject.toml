@@ -3,7 +3,7 @@ requires = ["hatchling", "hatch-vcs", "hatch-fancy-pypi-readme"]
 build-backend = "hatchling.build"
 
 [project]
-name = "oddly"
+name = "ossuary"
 dynamic = ["version", "readme"]
 description = "dice analysis toolkit"
 authors = [
@@ -28,18 +28,18 @@ plot = [
     "matplotlib",
 ]
 gtkplot = [
-    "oddly[plot]",
+    "ossuary[plot]",
     "PyGObject",
 ]
 
 [project.scripts]
-oddly = "oddly.__main__:main"
+ossuary = "ossuary.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/bszonye/oddly"
-Repository = "https://github.com/bszonye/oddly"
-Documentation = "https://github.com/bszonye/oddly"
-# Changelog = "https://github.com/bszonye/oddly/TODO"
+Homepage = "https://github.com/bszonye/ossuary"
+Repository = "https://github.com/bszonye/ossuary"
+Documentation = "https://github.com/bszonye/ossuary"
+# Changelog = "https://github.com/bszonye/ossuary/TODO"
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]
 content-type = "text/markdown"
@@ -52,7 +52,7 @@ fragments = [
 only-packages = true
 
 [tool.hatch.build.hooks.vcs]
-version-file = "oddly/_version.py"
+version-file = "ossuary/_version.py"
 
 [tool.hatch.version]
 source = "vcs"
@@ -79,7 +79,7 @@ matrix.extras.features = [
 ]
 
 [tool.pdm.build]
-includes = ["oddly"]
+includes = ["ossuary"]
 
 [tool.pdm.dev-dependencies]
 # The project also uses several tools that don't depend on installation
@@ -117,7 +117,7 @@ exclude_lines = [
 branch = true
 parallel = true
 omit = [
-    "oddly/_version.py",
+    "ossuary/_version.py",
 ]
 
 
@@ -138,7 +138,7 @@ python_executable = ".venv/bin/python"
 
 [tool.pyright]
 typeCheckingMode = "strict"
-include = ["oddly", "tests"]
+include = ["ossuary", "tests"]
 exclude = ["**/node_modules", "**/__pycache__", "**/.*"]
 stubPath = "stubs"
 pythonVersion = "3.11"
@@ -147,7 +147,7 @@ venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
-addopts = "--cov=oddly --cov-report=term-missing:skip-covered --cov-report=html"
+addopts = "--cov=ossuary --cov-report=term-missing:skip-covered --cov-report=html"
 filterwarnings = [
     'error',
     # 'ignore::UserWarning',

@@ -1,8 +1,8 @@
-"""Unit tests for the oddly.draw module."""
+"""Unit tests for the draw module."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
-from oddly.draw import Bag, Deck
+from ossuary.draw import Bag, Deck
 
 
 class TestBagInit:

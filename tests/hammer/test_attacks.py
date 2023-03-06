@@ -4,8 +4,8 @@ __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
 from collections import Counter
 
-from oddly.hammer import AttackCounter, AttackPMF
-from oddly.pmf import Weight
+from ossuary.hammer import AttackCounter, AttackPMF
+from ossuary.pmf import Weight
 
 
 class TestAttackCounterInit:

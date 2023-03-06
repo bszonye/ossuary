@@ -1,4 +1,4 @@
-"""oddly.draw: bag & deck draw analysis."""
+"""draw: analysis for drawn randomizers (bags, decks, dominoes)."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
