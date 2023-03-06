@@ -1,4 +1,4 @@
-"""bones.pmf: probability mass function type."""
+"""oddly.pmf: probability mass function type."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
@@ -549,7 +549,7 @@ class PMF(Collection[ET_co]):
         scale: _Real = 100,
         stats: bool = True,
         sformat: str = ".2f",
-        window_title: str = "bones",
+        window_title: str = "oddly",
         block: bool = True,
         console: bool = False,
     ) -> None:
@@ -571,7 +571,8 @@ class PMF(Collection[ET_co]):
         n = len(domain)
 
         # Format event & probability labels.
-        xlabels, ylabels = zip(*self.format_pairs(fspec, scale=scale), strict=True)
+        labels = tuple(zip(*self.format_pairs(fspec, scale=scale), strict=True))
+        xlabels, ylabels = labels or ((), ())
 
         legend: list[Any] = []
         bcolor: list[ColorTriplet] = []
@@ -580,7 +581,9 @@ class PMF(Collection[ET_co]):
         hwidth = 3.0 * math.sqrt(2)
 
         nq = 0 if q is None else q if isinstance(q, int) else self.auto_quantile
-        if nq < 2:
+        if not image:
+            pass  # no values to interpret
+        elif nq < 2:
             # Color probabilities individually: violet=zero, red=max.
             tmin = min(image)
             tmax = max(image)
@@ -653,7 +656,7 @@ class PMF(Collection[ET_co]):
                 markerfirst=False,
             )
         # Statistical information.
-        if stats:
+        if stats and image:
             try:  # Only some event types will support this.
                 mean = format(self.mean, sformat)  # type: ignore
                 stdev = format(self.standard_deviation, sformat)  # type: ignore

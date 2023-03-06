@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 
 import pytest
 
-from bones.warhammer import Profile
+from oddly.hammer import Profile
 
 
 # Simple class hierarchy to test attribute inheritance.

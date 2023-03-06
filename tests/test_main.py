@@ -1,4 +1,4 @@
-"""Unit tests for the bones.__main__ module."""
+"""Unit tests for the oddly.__main__ module."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
@@ -6,7 +6,7 @@ from typing import TypeAlias
 
 import pytest
 
-import bones.__main__ as main
+import oddly.__main__ as main
 
 Cap: TypeAlias = pytest.CaptureFixture[str]
 

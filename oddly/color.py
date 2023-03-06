@@ -1,4 +1,4 @@
-"""bones.pmf: color utilities."""
+"""oddly.pmf: color utilities."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 

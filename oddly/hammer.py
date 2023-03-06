@@ -1,4 +1,4 @@
-"""bones.warhammer: dice analysis for Warhammer games."""
+"""oddly.hammer: dice analysis for Warhammer games."""
 
 __author__ = "Bradd Szonye <bszonye@gmail.com>"
 
@@ -99,7 +99,7 @@ class ConditionalModifier(Modifier):
     """A modifier only applied in certain circumstances."""
 
 
-# TODO: Move AttackCounter & AttackPMF to bones.pmf?
+# TODO: Move AttackCounter & AttackPMF to oddly.pmf?
 @dataclass(frozen=True)
 class AttackCounter:
     """Results counter for each step of the attack sequence."""
